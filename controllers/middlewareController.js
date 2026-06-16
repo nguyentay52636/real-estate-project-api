@@ -2,18 +2,11 @@ const jwt = require("jsonwebtoken");
 
 const middlewareController = {
   verifyToken: (req, res, next) => {
-    // Hỗ trợ cả header 'token' và 'authorization'
     let token = req.headers.token || req.headers.authorization;
-    
+
     if (token) {
-      // Nếu token có prefix "Bearer ", bỏ prefix đi
-      if (token.startsWith('Bearer ')) {
-        token = token.slice(7);
-      } else if (token.includes(' ')) {
-        // Nếu token có format "Bearer <token>" từ header 'token'
-        token = token.split(" ")[1];
-      }
-      
+      token = token.replace(/bearer\s+/gi, "").trim();
+
       jwt.verify(token, process.env.JWT_ACCESS_KEY, (error, userData) => {
         if (error) {
           return res.status(403).json("Token không hợp lệ");

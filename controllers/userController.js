@@ -5,6 +5,10 @@ const Customer = require("../models/KhachHang");
 const VaiTro = require("../models/vaiTro");
 const ChuTNha = require("../models/chuNha");
 const NhanVien = require("../models/NhanVien");
+const fs = require("fs");
+const path = require("path");
+const cloudinary = require("../config/cloudinary");
+
 const userController = {
   getAllUser: async (req, res) => {
     try {
@@ -37,17 +41,17 @@ const userController = {
       const { id } = req.params;
       const user = await User.findById(id).populate('vaiTro');
       if (!user) return res.status(404).json({ message: "User not found" });
-      return res.status(200).json(user);  
-    } catch (error) { 
+      return res.status(200).json(user);
+    } catch (error) {
       return res.status(500).json(error);
     }
   },
   updateUser: async (req, res) => {
     try {
       const { id } = req.params;
-      const { ten, email, tenDangNhap ,matKhau, soDienThoai, vaiTro, anhDaiDien,trangThai } = req.body;
-      
-      const userUpdate = { 
+      const { ten, email, tenDangNhap, matKhau, soDienThoai, vaiTro, anhDaiDien, trangThai } = req.body;
+
+      const userUpdate = {
         ten,
         email,
         tenDangNhap,
@@ -66,7 +70,7 @@ const userController = {
       if (vaiTro) {
         let vaiTroDoc = await VaiTro.findOne({ ten: vaiTro });
         if (!vaiTroDoc) {
-          vaiTroDoc = await VaiTro.create({ 
+          vaiTroDoc = await VaiTro.create({
             ten: vaiTro,
             moTa: `Vai trò ${vaiTro}`
           });
@@ -76,7 +80,7 @@ const userController = {
 
       const updatedUserData = await User.findByIdAndUpdate(id, userUpdate, {
         new: true,
-      });   
+      });
       if (!updatedUserData)
         return res.status(404).json({ message: "User not found" });
       return res
@@ -107,12 +111,12 @@ const userController = {
 
       let vaiTro = await VaiTro.findOne({ ten: req.body.vaiTro });
       if (!vaiTro) {
-        vaiTro = await VaiTro.create({ 
+        vaiTro = await VaiTro.create({
           ten: req.body.vaiTro,
           moTa: `Vai trò ${req.body.vaiTro}`
         });
       }
-      
+
       const newUser = await User.create({
         ten: req.body.ten,
         email: req.body.email,
@@ -126,25 +130,25 @@ const userController = {
       var khachHang = null;
       var chuTro = null;
       var nhanVien = null;
-      var phanLoai = null ; 
-      if(req.body.vaiTro === "admin"){
-        phanLoai = "admin" ; 
-        vaiTro = "admin" ; 
-      }else if(req.body.vaiTro === "nhan_vien"){
-        phanLoai = "nhan_vien" ; 
-        vaiTro = "nhan_vien" ; 
+      var phanLoai = null;
+      if (req.body.vaiTro === "admin") {
+        phanLoai = "admin";
+        vaiTro = "admin";
+      } else if (req.body.vaiTro === "nhan_vien") {
+        phanLoai = "nhan_vien";
+        vaiTro = "nhan_vien";
         nhanVien = await NhanVien.create({
           nguoiDungId: newUser._id,
         });
-      }else if(req.body.vaiTro === "nguoi_thue"){
-        phanLoai = "nguoi_thue" ; 
-        vaiTro = "nguoi_thue" ; 
+      } else if (req.body.vaiTro === "nguoi_thue") {
+        phanLoai = "nguoi_thue";
+        vaiTro = "nguoi_thue";
         khachHang = await Customer.create({
           nguoiDungId: newUser._id,
         });
-      }else if(req.body.vaiTro === "chu_tro"){
-        phanLoai = "chu_tro" ; 
-        vaiTro = "chu_tro" ; 
+      } else if (req.body.vaiTro === "chu_tro") {
+        phanLoai = "chu_tro";
+        vaiTro = "chu_tro";
         chuTro = await ChuTNha.create({
           nguoiDungId: newUser._id,
         });
@@ -159,6 +163,137 @@ const userController = {
       });
     } catch (err) {
       return res.status(500).json({ message: "Server error", error: err });
+    }
+  },
+  updateAvatarLocal: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Vui lòng tải lên một hình ảnh" });
+      }
+
+      const user = await User.findById(id);
+      if (!user) {
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      }
+
+      // Xóa avatar cũ nếu có và là ảnh local lưu trong images/
+      if (user.anhDaiDien) {
+        const oldAvatarPath = user.anhDaiDien.startsWith("/")
+          ? user.anhDaiDien.slice(1)
+          : user.anhDaiDien;
+
+        if (oldAvatarPath.startsWith("images/")) {
+          const fullPath = path.join(__dirname, "..", oldAvatarPath);
+          if (fs.existsSync(fullPath)) {
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (err) {
+              console.error("Lỗi khi xóa ảnh đại diện cũ:", err);
+            }
+          }
+        }
+      }
+
+      // Cập nhật đường dẫn avatar mới
+      const avatarUrl = `/images/${req.file.filename}`;
+      const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { anhDaiDien: avatarUrl },
+        { new: true }
+      ).populate("vaiTro");
+
+      return res.status(200).json({
+        message: "Cập nhật ảnh đại diện thành công",
+        updatedUser,
+      });
+    } catch (error) {
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (e) {}
+      }
+      return res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+    }
+  },
+  updateAvatarCloudinary: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Vui lòng tải lên một hình ảnh" });
+      }
+
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      }
+
+      // Xóa avatar cũ trên Cloudinary nếu có
+      if (user.anhDaiDien && user.anhDaiDien.includes("res.cloudinary.com")) {
+        try {
+          const parts = user.anhDaiDien.split('/');
+          const uploadIndex = parts.indexOf('upload');
+          if (uploadIndex !== -1 && parts.length > uploadIndex + 2) {
+            const fileWithExt = parts[parts.length - 1];
+            const publicIdWithFolder = parts
+              .slice(uploadIndex + 2, parts.length - 1)
+              .concat(fileWithExt.split('.')[0])
+              .join('/');
+            await cloudinary.uploader.destroy(publicIdWithFolder);
+          }
+        } catch (err) {
+          console.error("Lỗi khi xóa ảnh đại diện cũ trên Cloudinary:", err);
+        }
+      } else if (user.anhDaiDien) {
+        // Xóa ảnh cũ cục bộ nếu có
+        const oldAvatarPath = user.anhDaiDien.startsWith("/")
+          ? user.anhDaiDien.slice(1)
+          : user.anhDaiDien;
+
+        if (oldAvatarPath.startsWith("images/")) {
+          const fullPath = path.join(__dirname, "..", oldAvatarPath);
+          if (fs.existsSync(fullPath)) {
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (err) {
+              console.error("Lỗi khi xóa ảnh đại diện cũ local:", err);
+            }
+          }
+        }
+      }
+
+      // Upload buffer lên Cloudinary
+      const uploadFromBuffer = (fileBuffer) => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "avatars" },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          stream.end(fileBuffer);
+        });
+      };
+
+      const result = await uploadFromBuffer(req.file.buffer);
+
+      // Cập nhật đường dẫn avatar mới
+      const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { anhDaiDien: result.secure_url },
+        { new: true }
+      ).populate("vaiTro");
+
+      return res.status(200).json({
+        message: "Cập nhật ảnh đại diện lên Cloudinary thành công",
+        updatedUser,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
     }
   },
 };

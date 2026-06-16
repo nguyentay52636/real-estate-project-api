@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/userController");
 const middlewareController = require("../controllers/middlewareController");
+const uploadAvatar = require("../middleware/uploadAvatar");
+const uploadMemory = require("../middleware/uploadMemory");
 
 // GET /api/user - Get all users
 router.get("/", userController.getAllUser);
@@ -20,6 +22,20 @@ router.delete(
   "/:id",
   middlewareController.verifyTokenAndAdminAuth,
   userController.deleteUser
+);
+
+// PATCH /api/user/:id/avatar/local - Update user avatar locally
+router.patch(
+  "/:id/avatar/local",
+  uploadAvatar.single("avatar"),
+  userController.updateAvatarLocal
+);
+
+// PATCH /api/user/:id/avatar/cloudinary - Update user avatar on Cloudinary
+router.patch(
+  "/:id/avatar/cloudinary",
+  uploadMemory.single("avatar"),
+  userController.updateAvatarCloudinary
 );
 
 module.exports = router;
