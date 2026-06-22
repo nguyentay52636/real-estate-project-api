@@ -178,12 +178,90 @@ async function getHandoffStatus(handoffToken) {
   };
 }
 
-async function getPendingTickets() {
-  const tickets = await ChatTicket.find({ trangThai: 'pending' })
+async function getPendingTickets(agentId = null) {
+  const filter = { trangThai: 'pending' };
+  if (agentId) {
+    filter.boQuaBoi = { $nin: [agentId] };
+  }
+
+  const tickets = await ChatTicket.find(filter)
     .sort({ createdAt: 1 })
     .populate('khachHangId', 'ten email anhDaiDien');
 
   return tickets.map(formatTicketForClient);
+}
+
+async function dismissHandoffTicket(handoffToken, agentId) {
+  const agentIsNhanVienUser = await isNhanVien(agentId);
+  if (!agentIsNhanVienUser) {
+    throw new Error('Chỉ nhân viên mới có thể xóa thông báo');
+  }
+
+  const ticket = await ChatTicket.findOne({ handoffToken, trangThai: 'pending' });
+  if (ticket) {
+    const alreadyDismissed = (ticket.boQuaBoi || []).some(
+      (id) => id.toString() === agentId.toString(),
+    );
+    if (!alreadyDismissed) {
+      ticket.boQuaBoi = [...(ticket.boQuaBoi || []), agentId];
+      await ticket.save();
+    }
+  }
+
+  const deletedNotification = await ThongBaoChat.findOneAndDelete({
+    handoffToken,
+    nguoiNhan: agentId,
+    loai: 'handoff_ticket',
+  });
+
+  const io = getIO();
+  if (io) {
+    io.to(agentId.toString()).emit('handoff:notificationRemoved', {
+      handoffToken,
+      notificationId: deletedNotification?._id,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return {
+    success: true,
+    handoffToken,
+    message: 'Đã xóa thông báo',
+  };
+}
+
+async function dismissAllHandoffNotifications(agentId) {
+  const agentIsNhanVienUser = await isNhanVien(agentId);
+  if (!agentIsNhanVienUser) {
+    throw new Error('Chỉ nhân viên mới có thể xóa thông báo');
+  }
+
+  const pendingTickets = await ChatTicket.find({ trangThai: 'pending' });
+  for (const ticket of pendingTickets) {
+    const alreadyDismissed = (ticket.boQuaBoi || []).some(
+      (id) => id.toString() === agentId.toString(),
+    );
+    if (!alreadyDismissed) {
+      ticket.boQuaBoi = [...(ticket.boQuaBoi || []), agentId];
+      await ticket.save();
+    }
+  }
+
+  const deleted = await ThongBaoChat.deleteMany({ nguoiNhan: agentId });
+
+  const io = getIO();
+  if (io) {
+    io.to(agentId.toString()).emit('handoff:allDismissed', {
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return {
+    success: true,
+    dismissedTicketCount: pendingTickets.length,
+    deletedNotificationCount: deleted.deletedCount,
+    message: 'Đã xóa tất cả thông báo',
+  };
 }
 
 async function acceptHandoffTicket(handoffToken, agentId) {
@@ -352,4 +430,6 @@ module.exports = {
   getActiveNhanVienUsers,
   isNhanVien,
   formatTicketForClient,
+  dismissHandoffTicket,
+  dismissAllHandoffNotifications,
 };

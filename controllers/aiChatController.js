@@ -1,5 +1,6 @@
 
 const OpenAI = require('openai');
+const logger = require('../utils/logger');
 const {
   createHandoffTicket,
   getHandoffStatus,
@@ -8,6 +9,8 @@ const {
   getActiveNhanVienUsers,
   formatTicketForClient,
   isNhanVien,
+  dismissHandoffTicket,
+  dismissAllHandoffNotifications,
 } = require('../services/handoffService');
 
 function normalizeHandoffPayload(body = {}) {
@@ -156,10 +159,11 @@ async function callAIModel(userMessage, conversationHistory = []) {
   ];
 
   let lastError = null;
+  const failures = [];
 
   for (const model of MODEL_FALLBACK_CHAIN) {
     try {
-      console.log(`🤖 [AI] Trying model: ${model}`);
+      logger.debug(`[AI] Trying model: ${model}`);
       const completion = await openRouterClient.chat.completions.create({
         model,
         messages,
@@ -168,7 +172,12 @@ async function callAIModel(userMessage, conversationHistory = []) {
       });
 
       const rawContent = completion.choices[0]?.message?.content || '{}';
-      console.log(`✅ [AI] Got response from: ${model}`);
+
+      if (failures.length > 0) {
+        logger.info(`[AI] OK ${model} (sau ${failures.length} model lỗi)`);
+      } else {
+        logger.debug(`[AI] OK ${model}`);
+      }
 
       const jsonMatch =
         rawContent.match(/```json\s*([\s\S]*?)\s*```/) ||
@@ -185,24 +194,27 @@ async function callAIModel(userMessage, conversationHistory = []) {
 
     } catch (err) {
       const status = err?.status || err?.response?.status;
-      console.warn(`⚠️ [AI] Model ${model} failed (${status}): ${err.message}`);
+      failures.push({ model, status, message: err.message });
+      logger.debug(`[AI] ${model} failed (${status}): ${err.message}`);
       lastError = err;
 
       if (status !== 429 && status < 500) break;
     }
   }
 
+  const summary = failures.map((f) => `${f.model}(${f.status || 'err'})`).join(' → ');
+  logger.warn(`[AI] Hết model khả dụng: ${summary}`);
   throw lastError || new Error('All AI models are currently unavailable');
 }
 
 async function processUserMessage(message, sessionId, conversationHistory = []) {
-  console.log(`🤖 [AI] Processing message: "${message}"`);
+  logger.debug(`[AI] Processing: "${String(message).slice(0, 80)}"`);
 
   const aiResult = await callAIModel(message, conversationHistory);
   const resolvedSessionId = sessionId || `session_${Date.now()}`;
 
   if (aiResult.requiresHandOff) {
-    console.log(`🚨 [AI] HandOff triggered. Reason: ${aiResult.reason}`);
+    logger.info(`[AI] Handoff → ${aiResult.reason || 'không rõ lý do'}`);
     return {
       success: true,
       requiresHandOff: true,
@@ -219,7 +231,7 @@ async function processUserMessage(message, sessionId, conversationHistory = []) 
     (aiResult.matchedApartments || []).includes(a.id)
   );
 
-  console.log(`✅ [AI] Answered. Matched apartments: ${JSON.stringify(aiResult.matchedApartments)}`);
+  logger.debug(`[AI] Answered, matched: ${JSON.stringify(aiResult.matchedApartments)}`);
 
   return {
     success: true,
@@ -390,7 +402,7 @@ exports.getPendingHandoffs = async (req, res) => {
       return res.status(403).json({ success: false, error: 'Chỉ nhân viên mới xem được danh sách ticket' });
     }
 
-    const tickets = await getPendingTickets();
+    const tickets = await getPendingTickets(agentId);
     return res.status(200).json({
       success: true,
       total: tickets.length,
@@ -401,6 +413,36 @@ exports.getPendingHandoffs = async (req, res) => {
 
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+exports.dismissHandoff = async (req, res) => {
+  try {
+    const agentId = req.user?.id;
+    const { handoffToken } = req.params;
+
+    if (!handoffToken) {
+      return res.status(400).json({ success: false, error: 'handoffToken là bắt buộc' });
+    }
+
+    const result = await dismissHandoffTicket(handoffToken, agentId);
+    return res.status(200).json(result);
+  } catch (error) {
+    const status = error.message.includes('nhân viên') ? 403 : 500;
+    return res.status(status).json({ success: false, error: error.message });
+  }
+};
+
+
+exports.dismissAllHandoffs = async (req, res) => {
+  try {
+    const agentId = req.user?.id;
+    const result = await dismissAllHandoffNotifications(agentId);
+    return res.status(200).json(result);
+  } catch (error) {
+    const status = error.message.includes('nhân viên') ? 403 : 500;
+    return res.status(status).json({ success: false, error: error.message });
   }
 };
 

@@ -19,6 +19,8 @@ const ChatTicketSchema = new mongoose.Schema({
   },
   nhanVienId: { type: mongoose.Schema.Types.ObjectId, ref: 'nguoiDung', default: null },
   phongChatId: { type: mongoose.Schema.Types.ObjectId, ref: 'PhongChat', default: null },
+  /** Nhân viên đã ẩn/bỏ qua ticket này khỏi danh sách thông báo */
+  boQuaBoi: [{ type: mongoose.Schema.Types.ObjectId, ref: 'nguoiDung' }],
 }, {
   timestamps: true,
   versionKey: false,

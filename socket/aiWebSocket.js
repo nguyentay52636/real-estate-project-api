@@ -1,4 +1,5 @@
 const { WebSocketServer } = require('ws');
+const logger = require('../utils/logger');
 const { processUserMessage } = require('../controllers/aiChatController');
 const { createHandoffTicket } = require('../services/handoffService');
 
@@ -122,7 +123,7 @@ async function handleChatMessage(ws, { message, sessionId, userId, customerName,
         result.ticketId = ticket._id;
         result.status = ticket.trangThai;
       } catch (ticketError) {
-        console.error('❌ [AI WS] Create handoff ticket failed:', ticketError.message);
+        logger.error('[AI WS] Create handoff ticket failed:', ticketError.message);
       }
     }
 
@@ -133,7 +134,7 @@ async function handleChatMessage(ws, { message, sessionId, userId, customerName,
       content: result.aiResponse || result.handOffMessage || null,
     }));
   } catch (error) {
-    console.error('❌ [AI WS] Error:', error.message);
+    logger.error('[AI WS] Error:', error.message);
     ws.send(JSON.stringify({
       type: 'error',
       success: false,
@@ -159,18 +160,18 @@ function setupAiWebSocket(server) {
   });
 
   wss.on('connection', (ws) => {
-    console.log('🤖 [AI WS] Client connected');
+    logger.debug('[AI WS] Client connected');
 
     ws.send(JSON.stringify({
       type: 'ready',
       success: true,
-      message: 'AI server sẵn sàng',
+      message: '',
       timestamp: new Date().toISOString(),
     }));
 
     ws.on('message', async (raw) => {
       const parsed = parseIncomingPayload(raw);
-      console.log('🤖 [AI WS] Incoming:', parsed.kind === 'unsupported' ? parsed.payload : { kind: parsed.kind, preview: parsed.message?.slice?.(0, 80) });
+      logger.debug('[AI WS] Incoming:', parsed.kind === 'unsupported' ? parsed.payload : { kind: parsed.kind, preview: parsed.message?.slice?.(0, 80) });
 
       if (parsed.kind === 'invalid') {
         ws.send(JSON.stringify({ type: 'error', success: false, error: parsed.error }));
@@ -199,15 +200,15 @@ function setupAiWebSocket(server) {
     });
 
     ws.on('close', () => {
-      console.log('🤖 [AI WS] Client disconnected');
+      logger.debug('[AI WS] Client disconnected');
     });
 
     ws.on('error', (error) => {
-      console.error('❌ [AI WS] Socket error:', error.message);
+      logger.error('[AI WS] Socket error:', error.message);
     });
   });
 
-  console.log(`🤖 AI WebSocket server ready at ${WS_PATH}`);
+  logger.info(`[AI WS] Ready at ${WS_PATH}`);
   return wss;
 }
 

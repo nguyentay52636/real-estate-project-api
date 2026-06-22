@@ -8,6 +8,7 @@ const TinNhan = require('../models/TinNhan');
 const { createMessage, updateMessage, deleteMessage } = require('../controllers/messageController');
 const { createNotification } = require('../controllers/notificationChatController');
 const { setIO } = require('./ioInstance');
+const logger = require('../utils/logger');
 const NguoiDung = require('../models/Nguoidung');
 const {
   acceptHandoffTicket,
@@ -60,7 +61,7 @@ const setupSocket = (server) => {
   const onlineUsers = new Map(); // Map<userId, Set<socket.id>>
 
   io.on('connection', async (socket) => {
-    console.log(`🟢 Socket Connected: ${socket.id}, User: ${socket.user.id}`);
+    logger.debug(`Socket connected: ${socket.user.id} (${socket.id})`);
 
     const currentUser = await NguoiDung.findById(socket.user.id).populate('vaiTro', 'ten');
     socket.user.vaiTroTen = currentUser?.vaiTro?.ten || null;
@@ -68,7 +69,7 @@ const setupSocket = (server) => {
     socket.join(socket.user.id);
     if (socket.user.vaiTroTen === 'nhan_vien') {
       socket.join('nhan_vien_online');
-      const pendingTickets = await getPendingTickets();
+      const pendingTickets = await getPendingTickets(socket.user.id);
       socket.emit('handoff:pendingList', {
         tickets: pendingTickets,
         timestamp: new Date().toISOString(),
@@ -781,7 +782,7 @@ const setupSocket = (server) => {
           loaiTinNhan: loaiTinNhan || 'text',
         };
 
-        const message = await createMessage(messageData, io);
+        const message = await createMessage(messageData);
         const populatedMessage = await TinNhan.findById(message._id)
           .populate('nguoiGuiId', 'hoTen avatar')
           .populate('roomId', 'tenPhong loaiPhong')
@@ -976,7 +977,7 @@ const setupSocket = (server) => {
           },
         };
 
-        const message = await createMessage(messageData, io);
+        const message = await createMessage(messageData);
         const populatedMessage = await TinNhan.findById(message._id)
           .populate('nguoiGuiId', 'hoTen avatar')
           .populate('roomId', 'tenPhong loaiPhong');
@@ -1048,7 +1049,7 @@ const setupSocket = (server) => {
           return;
         }
 
-        const tickets = await getPendingTickets();
+        const tickets = await getPendingTickets(socket.user.id);
         socket.emit('handoff:pendingList', { tickets, timestamp: new Date().toISOString() });
       } catch (error) {
         socket.emit('error', { code: 'HANDOFF_LIST_FAILED', message: error.message });
@@ -1057,7 +1058,7 @@ const setupSocket = (server) => {
 
     // Xử lý ngắt kết nối
     socket.on('disconnect', async (reason) => {
-      console.log(`🔴 Socket Disconnected: ${socket.id}, User: ${socket.user.id}, Reason: ${reason}`);
+      logger.debug(`Socket disconnected: ${socket.user.id} (${reason})`);
 
       const rooms = userRooms.get(socket.id);
       if (rooms) {
