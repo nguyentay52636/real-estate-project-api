@@ -10,6 +10,7 @@ const session = require("express-session");
 const passport = require("./config/passport");
 const connectDB = require("./config/db");
 const { setupSocket } = require("./socket/SocketServer");
+const { setupAiWebSocket } = require("./socket/aiWebSocket");
 const path = require("path");
 const PORT = process.env.PORT || 8000;
 const rootRouter = require("./routes/root");
@@ -22,6 +23,7 @@ connectDB();
 
 
 setupSocket(server);
+setupAiWebSocket(server);
 
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -51,6 +53,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Socket.IO server is ready`);
+  console.log(`AI WebSocket server is ready at ws://localhost:${PORT}/ws`);
 });
 
 // Graceful shutdown handling

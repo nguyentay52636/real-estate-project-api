@@ -106,6 +106,31 @@
 
 /**
  * @swagger
+ * /api/user/all:
+ *   get:
+ *     summary: Lấy danh sách toàn bộ người dùng (không trả về mật khẩu)
+ *     tags: [User]
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Lấy danh sách tất cả người dùng thành công"
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/NguoiDung'
+ *       500:
+ *         description: Lỗi server
+ */
+
+/**
+ * @swagger
  * /api/user/{id}:
  *   get:
  *     summary: Lấy thông tin người dùng theo ID

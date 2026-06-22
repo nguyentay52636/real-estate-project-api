@@ -1,5 +1,5 @@
 // controllers/notificationController.js
-const ThongBao = require('../models/ThongBao');
+const ThongBao = require('../models/ThongBaoChat');
 const PhongChat = require('../models/PhongChat');
 
 // Kiểm tra quyền truy cập phòng chat (giữ nguyên từ roomController.js để tránh xung đột)

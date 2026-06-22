@@ -7,6 +7,13 @@ const PhongChat = require('../models/PhongChat');
 const TinNhan = require('../models/TinNhan');
 const { createMessage, updateMessage, deleteMessage } = require('../controllers/messageController');
 const { createNotification } = require('../controllers/notificationChatController');
+const { setIO } = require('./ioInstance');
+const NguoiDung = require('../models/Nguoidung');
+const {
+  acceptHandoffTicket,
+  getPendingTickets,
+  isNhanVien,
+} = require('../services/handoffService');
 
 const setupSocket = (server) => {
   const io = socketIo(server, {
@@ -41,8 +48,10 @@ const setupSocket = (server) => {
       };
       next();
     } catch (error) {
+      const message =
+        error.name === 'TokenExpiredError' ? 'jwt expired' : 'Xác thực không hợp lệ';
       console.error('❌ Lỗi xác thực Socket:', error.message);
-      next(new Error('Xác thực không hợp lệ'));
+      next(new Error(message));
     }
   });
 
@@ -50,8 +59,21 @@ const setupSocket = (server) => {
   const userRooms = new Map(); // Map<socket.id, Set<roomId>>
   const onlineUsers = new Map(); // Map<userId, Set<socket.id>>
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log(`🟢 Socket Connected: ${socket.id}, User: ${socket.user.id}`);
+
+    const currentUser = await NguoiDung.findById(socket.user.id).populate('vaiTro', 'ten');
+    socket.user.vaiTroTen = currentUser?.vaiTro?.ten || null;
+
+    socket.join(socket.user.id);
+    if (socket.user.vaiTroTen === 'nhan_vien') {
+      socket.join('nhan_vien_online');
+      const pendingTickets = await getPendingTickets();
+      socket.emit('handoff:pendingList', {
+        tickets: pendingTickets,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     // Thêm người dùng vào danh sách online
     const userSockets = onlineUsers.get(socket.user.id) || new Set();
@@ -989,6 +1011,50 @@ const setupSocket = (server) => {
       });
     });
 
+    socket.on('handoff:join', ({ handoffToken }) => {
+      if (!handoffToken) {
+        socket.emit('error', { code: 'INVALID_DATA', message: 'handoffToken là bắt buộc' });
+        return;
+      }
+      socket.join(`handoff:${handoffToken}`);
+      socket.emit('handoff:joined', { handoffToken, timestamp: new Date() });
+    });
+
+    socket.on('handoff:accept', async ({ handoffToken }) => {
+      try {
+        if (!handoffToken) {
+          socket.emit('error', { code: 'INVALID_DATA', message: 'handoffToken là bắt buộc' });
+          return;
+        }
+
+        const agentIsNhanVien = await isNhanVien(socket.user.id);
+        if (!agentIsNhanVien) {
+          socket.emit('error', { code: 'UNAUTHORIZED', message: 'Chỉ nhân viên mới có thể nhận ticket' });
+          return;
+        }
+
+        const result = await acceptHandoffTicket(handoffToken, socket.user.id);
+        socket.emit('handoff:acceptSuccess', result);
+      } catch (error) {
+        socket.emit('error', { code: 'HANDOFF_ACCEPT_FAILED', message: error.message });
+      }
+    });
+
+    socket.on('handoff:list', async () => {
+      try {
+        const agentIsNhanVien = await isNhanVien(socket.user.id);
+        if (!agentIsNhanVien) {
+          socket.emit('error', { code: 'UNAUTHORIZED', message: 'Chỉ nhân viên mới xem được danh sách ticket' });
+          return;
+        }
+
+        const tickets = await getPendingTickets();
+        socket.emit('handoff:pendingList', { tickets, timestamp: new Date().toISOString() });
+      } catch (error) {
+        socket.emit('error', { code: 'HANDOFF_LIST_FAILED', message: error.message });
+      }
+    });
+
     // Xử lý ngắt kết nối
     socket.on('disconnect', async (reason) => {
       console.log(`🔴 Socket Disconnected: ${socket.id}, User: ${socket.user.id}, Reason: ${reason}`);
@@ -1030,6 +1096,7 @@ const setupSocket = (server) => {
   });
 
   console.log('🚀 Socket.IO server configured with enhanced real-time messaging and authentication');
+  setIO(io);
   return io;
 };
 

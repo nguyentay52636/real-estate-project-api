@@ -13,6 +13,7 @@ const customerRouter = require("./customer");
 const messageRouter = require("./message");
 const roomRouter = require("./room");
 const notificationRouter = require("./notificationChat");
+const aiChatRouter = require("./aiChat");
 router.use("/owner",ownerRouter)
 router.use("/favorite", favoriteRouter);
 router.use("/user", userRouter);
@@ -26,6 +27,7 @@ router.use("/customer", customerRouter);
 router.use("/message", messageRouter);
 router.use("/notification", notificationRouter);
 router.use("/room", roomRouter);
+router.use("/ai-chat", aiChatRouter);
 
 
 

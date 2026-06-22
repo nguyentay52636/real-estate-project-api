@@ -8,6 +8,9 @@ const uploadMemory = require("../middleware/uploadMemory");
 // GET /api/user - Get all users
 router.get("/", userController.getAllUser);
 
+// GET /api/user/all - Get all users (dedicated endpoint)
+router.get("/all", userController.getAllUsers);
+
 // GET /api/user/:id - Get user by ID
 router.get("/:id", userController.getUserById);
 

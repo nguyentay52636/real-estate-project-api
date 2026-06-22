@@ -20,6 +20,17 @@ const userController = {
       return res.status(500).json(error);
     }
   },
+  getAllUsers: async (req, res) => {
+    try {
+      const users = await User.find().select("-matKhau").populate("vaiTro");
+      return res.status(200).json({
+        message: "Lấy danh sách tất cả người dùng thành công",
+        users,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+    }
+  },
   deleteUser: async (req, res) => {
     try {
       const { id } = req.params;
