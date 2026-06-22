@@ -781,7 +781,7 @@ const setupSocket = (server) => {
           loaiTinNhan: loaiTinNhan || 'text',
         };
 
-        const message = await createMessage(messageData);
+        const message = await createMessage(messageData, io);
         const populatedMessage = await TinNhan.findById(message._id)
           .populate('nguoiGuiId', 'hoTen avatar')
           .populate('roomId', 'tenPhong loaiPhong')
@@ -837,7 +837,7 @@ const setupSocket = (server) => {
           return;
         }
 
-        const updated = await updateMessage(id, noiDungMoi, tapTin);
+        const updated = await updateMessage(id, noiDungMoi, socket.user.id, io);
         if (!updated) {
           socket.emit('error', { code: 'UPDATE_FAILED', message: 'Cập nhật tin nhắn thất bại' });
           return;
@@ -889,7 +889,7 @@ const setupSocket = (server) => {
           return;
         }
 
-        const deleted = await deleteMessage(id);
+        const deleted = await deleteMessage(id, socket.user.id, io);
         if (!deleted) {
           socket.emit('error', { code: 'DELETE_FAILED', message: 'Xóa tin nhắn thất bại' });
           return;
@@ -976,7 +976,7 @@ const setupSocket = (server) => {
           },
         };
 
-        const message = await createMessage(messageData);
+        const message = await createMessage(messageData, io);
         const populatedMessage = await TinNhan.findById(message._id)
           .populate('nguoiGuiId', 'hoTen avatar')
           .populate('roomId', 'tenPhong loaiPhong');

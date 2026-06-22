@@ -223,17 +223,53 @@ async function acceptHandoffTicket(handoffToken, agentId) {
     tinNhanGhim: [],
   });
 
+  const seededMessageIds = [];
+
+  for (const item of ticket.lichSuChat || []) {
+    const text = (item.message || '').trim();
+    if (!text) continue;
+
+    const isUser = item.role === 'user';
+    const historyMessage = await TinNhan.create({
+      roomId: room._id,
+      nguoiGuiId: isUser ? customerId : agentId,
+      noiDung: isUser ? text : `[Trợ lý AI] ${text}`,
+      loaiTinNhan: isUser ? 'text' : 'system',
+      daDoc: [customerId, agentId],
+      trangThai: 'sent',
+    });
+    seededMessageIds.push(historyMessage._id);
+  }
+
+  const lyDoText = (ticket.lyDo || '').trim();
+  const lastUserHistory = [...(ticket.lichSuChat || [])]
+    .reverse()
+    .find((item) => item.role === 'user' && (item.message || '').trim());
+
+  if (lyDoText && (!lastUserHistory || lastUserHistory.message.trim() !== lyDoText)) {
+    const customerMessage = await TinNhan.create({
+      roomId: room._id,
+      nguoiGuiId: customerId,
+      noiDung: lyDoText,
+      loaiTinNhan: 'text',
+      daDoc: [customerId, agentId],
+      trangThai: 'sent',
+    });
+    seededMessageIds.push(customerMessage._id);
+  }
+
   const systemMessage = await TinNhan.create({
     roomId: room._id,
     nguoiGuiId: agentId,
-    noiDung: `Nhân viên ${agent.ten} đã tham gia hỗ trợ. Lý do: ${ticket.lyDo}`,
+    noiDung: `Nhân viên ${agent.ten} đã tham gia hỗ trợ.${lyDoText ? ` Yêu cầu: ${lyDoText}` : ''}`,
     loaiTinNhan: 'system',
     daDoc: [customerId, agentId],
     trangThai: 'sent',
   });
+  seededMessageIds.push(systemMessage._id);
 
   await PhongChat.findByIdAndUpdate(room._id, {
-    $push: { tinNhan: systemMessage._id },
+    $push: { tinNhan: { $each: seededMessageIds } },
     tinNhanCuoi: systemMessage._id,
   });
 

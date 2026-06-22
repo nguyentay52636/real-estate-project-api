@@ -374,7 +374,11 @@ const unpinMessage = async (req, res) => {
 
 // Helper functions for Socket.IO
 const createMessage = async (data, io) => {
-  const newMsg = await TinNhan.create(data);
+  const newMsg = await TinNhan.create({
+    ...data,
+    daDoc: data.daDoc || [data.nguoiGuiId],
+    trangThai: data.trangThai || 'sent',
+  });
   await PhongChat.findByIdAndUpdate(data.roomId, {
     $push: { tinNhan: newMsg._id },
     tinNhanCuoi: newMsg._id,
@@ -384,8 +388,10 @@ const createMessage = async (data, io) => {
     .populate('nguoiGuiId', 'hoTen avatar')
     .populate('roomId', 'tenPhong loaiPhong');
 
-  io.to(data.roomId).emit('newMessage', populatedMsg);
-  return populatedMsg;
+  if (io) {
+    io.to(String(data.roomId)).emit('newMessage', populatedMsg);
+  }
+  return newMsg;
 };
 
 const updateMessage = async (id, noiDungMoi, userId, io) => {
@@ -401,7 +407,9 @@ const updateMessage = async (id, noiDungMoi, userId, io) => {
     .populate('nguoiGuiId', 'hoTen avatar')
     .populate('roomId', 'tenPhong loaiPhong');
 
-  io.to(updated.roomId).emit('updatedMessage', updated);
+  if (io) {
+    io.to(String(updated.roomId)).emit('updatedMessage', updated);
+  }
   return updated;
 };
 
@@ -418,7 +426,9 @@ const deleteMessage = async (id, userId, io) => {
     .populate('nguoiGuiId', 'hoTen avatar')
     .populate('roomId', 'tenPhong loaiPhong');
 
-  io.to(deleted.roomId).emit('deletedMessage', deleted);
+  if (io) {
+    io.to(String(deleted.roomId)).emit('deletedMessage', deleted);
+  }
   return deleted;
 };
 
@@ -435,7 +445,9 @@ const recallMessageSocket = async (id, userId, io) => {
     .populate('nguoiGuiId', 'hoTen avatar')
     .populate('roomId', 'tenPhong loaiPhong');
 
-  io.to(updated.roomId).emit('recalledMessage', updated);
+  if (io) {
+    io.to(String(updated.roomId)).emit('recalledMessage', updated);
+  }
   return updated;
 };
 
