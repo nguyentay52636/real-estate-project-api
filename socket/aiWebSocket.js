@@ -87,11 +87,14 @@ async function handleChatMessage(ws, { message, sessionId, userId, customerName,
     return;
   }
 
-  if (!process.env.OPEN_ROUTER_KEY) {
+  const { hasEmbeddingProvider } = require('../services/embeddingService');
+  const { hasChatProvider } = require('../services/geminiChatService');
+
+  if (!hasEmbeddingProvider() || !hasChatProvider()) {
     ws.send(JSON.stringify({
       type: 'error',
       success: false,
-      error: 'OPEN_ROUTER_KEY chưa được cấu hình trong .env',
+      error: 'Cần OPEN_ROUTER_KEY trong .env',
     }));
     return;
   }
@@ -132,6 +135,7 @@ async function handleChatMessage(ws, { message, sessionId, userId, customerName,
       ...result,
       message: result.aiResponse || result.handOffMessage || null,
       content: result.aiResponse || result.handOffMessage || null,
+      media: result.media || [],
     }));
   } catch (error) {
     logger.error('[AI WS] Error:', error.message);

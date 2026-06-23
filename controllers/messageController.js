@@ -3,6 +3,15 @@ const TinNhan = require('../models/TinNhan');
 const PhongChat = require('../models/PhongChat');
 const ThongBao = require('../models/ThongBao');
 
+function getAuthUserId(req, res) {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ message: 'Bạn chưa đăng nhập' });
+    return null;
+  }
+  return userId;
+}
+
 const checkRoomAccess = async (roomId, userId) => {
   const room = await PhongChat.findById(roomId);
   if (!room) {
@@ -17,7 +26,8 @@ const checkRoomAccess = async (roomId, userId) => {
 
 const getMessages = async (req, res) => {
   const { roomId } = req.params;
-  const userId = req.user.id;
+  const userId = getAuthUserId(req, res);
+  if (!userId) return;
 
   try {
     await checkRoomAccess(roomId, userId);
@@ -43,7 +53,8 @@ const getMessages = async (req, res) => {
 const createMessageHandler = async (req, res) => {
   try {
     const { roomId, noiDung, tapTin, phanHoiTinNhan, loaiTinNhan } = req.body;
-    const nguoiGuiId = req.user.id;
+    const nguoiGuiId = getAuthUserId(req, res);
+    if (!nguoiGuiId) return;
 
     if (!roomId || !nguoiGuiId || (!noiDung && !tapTin && loaiTinNhan !== 'system')) {
       return res.status(400).json({ message: 'Thiếu thông tin bắt buộc' });
@@ -117,7 +128,8 @@ const createMessageHandler = async (req, res) => {
 const createCallMessage = async (req, res) => {
   try {
     const { roomId, loai, trangThai, thoiLuong, thanhVien } = req.body;
-    const nguoiGuiId = req.user.id;
+    const nguoiGuiId = getAuthUserId(req, res);
+    if (!nguoiGuiId) return;
 
     if (!roomId || !loai) {
       return res.status(400).json({ message: 'Thiếu thông tin bắt buộc (roomId, loai)' });
@@ -175,7 +187,8 @@ const updateMessageHandler = async (req, res) => {
   try {
     const { id } = req.params;
     const { noiDungMoi, tapTin } = req.body;
-    const userId = req.user.id;
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
 
     const message = await TinNhan.findById(id);
     if (!message) {
@@ -207,7 +220,8 @@ const updateMessageHandler = async (req, res) => {
 const deleteMessageHandler = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
 
     const message = await TinNhan.findById(id);
     if (!message) {
@@ -238,7 +252,8 @@ const deleteMessageHandler = async (req, res) => {
 const recallMessage = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
 
     const message = await TinNhan.findById(id);
     if (!message) {
@@ -269,7 +284,8 @@ const recallMessage = async (req, res) => {
 const markMessageAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
 
     const message = await TinNhan.findById(id);
     if (!message) {
@@ -296,7 +312,8 @@ const markMessageAsRead = async (req, res) => {
 
 const searchMessages = async (req, res) => {
   const { roomId, keyword, startDate, endDate } = req.query;
-  const userId = req.user.id;
+  const userId = getAuthUserId(req, res);
+  if (!userId) return;
 
   try {
     await checkRoomAccess(roomId, userId);
@@ -324,7 +341,8 @@ const searchMessages = async (req, res) => {
 
 const pinMessage = async (req, res) => {
   const { roomId, messageId } = req.params;
-  const userId = req.user.id;
+  const userId = getAuthUserId(req, res);
+  if (!userId) return;
 
   try {
     const room = await PhongChat.findById(roomId);
@@ -350,7 +368,8 @@ const pinMessage = async (req, res) => {
 
 const unpinMessage = async (req, res) => {
   const { roomId, messageId } = req.params;
-  const userId = req.user.id;
+  const userId = getAuthUserId(req, res);
+  if (!userId) return;
 
   try {
     const room = await PhongChat.findById(roomId);

@@ -1,4 +1,13 @@
 const jwt = require("jsonwebtoken");
+const NguoiDung = require("../models/Nguoidung");
+const VaiTro = require("../models/VaiTro");
+
+async function isAdminUser(userId) {
+  const adminRole = await VaiTro.findOne({ ten: "admin" });
+  if (!adminRole) return false;
+  const user = await NguoiDung.findOne({ _id: userId, vaiTro: adminRole._id });
+  return Boolean(user);
+}
 
 const middlewareController = {
   verifyToken: (req, res, next) => {
@@ -25,6 +34,20 @@ const middlewareController = {
         next();
       } else {
         res.status(403).json("You are not allowed to delete other!");
+      }
+    });
+  },
+
+  verifyAdmin: (req, res, next) => {
+    middlewareController.verifyToken(req, res, async () => {
+      try {
+        const admin = await isAdminUser(req.user.id);
+        if (!admin) {
+          return res.status(403).json({ message: "Chỉ admin mới có quyền truy cập" });
+        }
+        next();
+      } catch (error) {
+        return res.status(500).json({ message: "Lỗi xác thực admin", error: error.message });
       }
     });
   },

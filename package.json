@@ -6,12 +6,15 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "seed:crm": "node scripts/seed-crm-knowledge.js",
     "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env')&&fs.existsSync('.env.example')){fs.copyFileSync('.env.example','.env');console.log('Created .env from .env.example');}else{console.log('.env already exists or .env.example missing');}\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@openrouter/sdk": "^0.13.7",
     "bcrypt": "^6.0.0",
     "camelcase": "^8.0.0",
     "cloudinary": "^2.10.0",
