@@ -299,7 +299,7 @@ const addMessageToRoom = async (req, res) => {
           await createNotification({
             nguoiNhan: member.nguoiDung,
             loai: 'new_message',
-            noiDung: `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
+            noiDung: ``,
             roomId,
             tinNhanId: messageId,
           }, req.io);

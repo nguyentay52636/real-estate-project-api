@@ -1,9 +1,38 @@
-const cloudinary = require('cloudinary').v2;
+const { v2: cloudinary } = require('cloudinary');
+
+const REQUIRED_VARS = [
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
+];
+
+function getMissingEnvVars() {
+  return REQUIRED_VARS.filter((key) => !process.env[key]);
+}
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
 });
+
+async function verifyCloudinaryConnection() {
+  const missing = getMissingEnvVars();
+  if (missing.length) {
+    return { ok: false, message: `Thiếu biến môi trường: ${missing.join(', ')}` };
+  }
+
+  try {
+    await cloudinary.api.ping();
+    return { ok: true };
+  } catch (error) {
+    const message = error?.error?.message || error?.message || 'Không kết nối được Cloudinary';
+    return { ok: false, message };
+  }
+}
+
+cloudinary.getMissingEnvVars = getMissingEnvVars;
+cloudinary.verifyConnection = verifyCloudinaryConnection;
 
 module.exports = cloudinary;

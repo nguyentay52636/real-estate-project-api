@@ -14,6 +14,7 @@ const messageRouter = require("./message");
 const roomRouter = require("./room");
 const notificationRouter = require("./notificationChat");
 const aiChatRouter = require("./aiChat");
+const uploadRouter = require("./upload");
 router.use("/owner",ownerRouter)
 router.use("/favorite", favoriteRouter);
 router.use("/user", userRouter);
@@ -28,6 +29,7 @@ router.use("/message", messageRouter);
 router.use("/notification", notificationRouter);
 router.use("/room", roomRouter);
 router.use("/ai-chat", aiChatRouter);
+router.use("/upload", uploadRouter);
 
 
 

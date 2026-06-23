@@ -15,6 +15,7 @@ const path = require("path");
 const PORT = process.env.PORT || 8000;
 const rootRouter = require("./routes/root");
 const { swaggerSpec, swaggerUi } = require("./swagger/swagger");
+const cloudinary = require("./config/cloudinary");
 
 const app = express();
 const server = http.createServer(app);
@@ -54,6 +55,14 @@ server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Socket.IO server is ready`);
   console.log(`AI WebSocket server is ready at ws://localhost:${PORT}/ws`);
+
+  cloudinary.verifyConnection().then((result) => {
+    if (result.ok) {
+      console.log("Cloudinary connected");
+    } else {
+      console.warn(`Cloudinary: ${result.message}`);
+    }
+  });
 });
 
 // Graceful shutdown handling

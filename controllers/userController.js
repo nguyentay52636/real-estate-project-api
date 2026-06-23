@@ -1,13 +1,13 @@
-const User = require("../models/nguoidung");
+const User = require("../models/Nguoidung");
 const bcrypt = require("bcrypt");
 const { registerValidation } = require("../middleware/authValidation");
 const Customer = require("../models/KhachHang");
-const VaiTro = require("../models/vaiTro");
-const ChuTNha = require("../models/chuNha");
+const VaiTro = require("../models/VaiTro");
+const ChuNha = require("../models/ChuNha");
 const NhanVien = require("../models/NhanVien");
 const fs = require("fs");
 const path = require("path");
-const cloudinary = require("../config/cloudinary");
+const { uploadFromBuffer, destroyByUrl } = require("../utils/cloudinaryService");
 
 const userController = {
   getAllUser: async (req, res) => {
@@ -242,19 +242,9 @@ const userController = {
         return res.status(404).json({ message: "Không tìm thấy người dùng" });
       }
 
-      // Xóa avatar cũ trên Cloudinary nếu có
-      if (user.anhDaiDien && user.anhDaiDien.includes("res.cloudinary.com")) {
+      if (user.anhDaiDien?.includes("res.cloudinary.com")) {
         try {
-          const parts = user.anhDaiDien.split('/');
-          const uploadIndex = parts.indexOf('upload');
-          if (uploadIndex !== -1 && parts.length > uploadIndex + 2) {
-            const fileWithExt = parts[parts.length - 1];
-            const publicIdWithFolder = parts
-              .slice(uploadIndex + 2, parts.length - 1)
-              .concat(fileWithExt.split('.')[0])
-              .join('/');
-            await cloudinary.uploader.destroy(publicIdWithFolder);
-          }
+          await destroyByUrl(user.anhDaiDien);
         } catch (err) {
           console.error("Lỗi khi xóa ảnh đại diện cũ trên Cloudinary:", err);
         }
@@ -276,21 +266,10 @@ const userController = {
         }
       }
 
-      // Upload buffer lên Cloudinary
-      const uploadFromBuffer = (fileBuffer) => {
-        return new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder: "avatars" },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-          stream.end(fileBuffer);
-        });
-      };
-
-      const result = await uploadFromBuffer(req.file.buffer);
+      const result = await uploadFromBuffer(req.file.buffer, {
+        folder: "avatars",
+        transformation: [{ width: 400, height: 400, crop: "fill", gravity: "face" }],
+      });
 
       // Cập nhật đường dẫn avatar mới
       const updatedUser = await User.findByIdAndUpdate(
