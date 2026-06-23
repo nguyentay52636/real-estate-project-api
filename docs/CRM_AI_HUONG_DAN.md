@@ -41,10 +41,20 @@ Script tạo sẵn 2 bài mẫu (Quận 2, Quận 1). Chỉnh thêm trong [`scri
 
 ---
 
-## Cách 3: API (tích hợp khác)
+## Cách 3: API Catalog (AI / tích hợp)
 
-- **Endpoint:** `POST /api/crm-knowledge`
-- **Auth:** JWT admin (`Authorization: Bearer <token>`)
+API **đọc catalog** tách riêng — không cần JWT admin:
+
+| Method | Endpoint | Mô tả |
+|--------|----------|--------|
+| `GET` | `/api/crm-knowledge-catalog` | Lấy **toàn bộ** bài `active` (AI dùng danh sách này để tư vấn) |
+| `GET` | `/api/crm-knowledge-catalog/search?q=căn+2PN+Quận+2` | Tìm BĐS khớp câu hỏi, trả `items` + `score` |
+
+Pipeline AI (`aiAdvisoryPipeline`) gọi nội bộ `crmKnowledgeService.getAllActive()` → tìm trên catalog → gọi model chat.
+
+## Cách 4: API Admin CRUD
+
+- **Endpoint:** `POST /api/crm-knowledge` (và GET/PUT/DELETE) — cần JWT **admin**
 
 Payload ví dụ:
 
@@ -71,8 +81,10 @@ Payload ví dụ:
 flowchart LR
   admin["Admin /admin/crm-knowledge"] --> db["MongoDB CrmKnowledge"]
   seed["npm run seed:crm"] --> db
-  chat["Khách chat bubble AI"] --> search["Text / vector search"]
-  db --> search
+  catalogApi["GET /crm-knowledge-catalog"] --> db
+  chat["Khách chat bubble AI"] --> getAll["getAllActive catalog"]
+  getAll --> db
+  chat --> search["Text / vector search trên catalog"]
   search -->|khớp| aiReply["AI trả lời + ảnh"]
   search -->|không khớp| handoff["Chuyển nhân viên"]
 ```

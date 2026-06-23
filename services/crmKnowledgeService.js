@@ -1,10 +1,20 @@
 const CrmKnowledge = require('../models/CrmKnowledge');
+const logger = require('../utils/logger');
 const { embed, buildEmbeddingText } = require('./embeddingService');
 const { uploadFromBuffer } = require('../utils/cloudinaryService');
 
+async function safeEmbed(text) {
+  try {
+    return await embed(text);
+  } catch (error) {
+    logger.warn('[CrmKnowledge] Embed skipped:', error.message);
+    return [];
+  }
+}
+
 async function createKnowledge(data, userId) {
   const embeddingText = buildEmbeddingText(data);
-  const embedding = await embed(embeddingText);
+  const embedding = await safeEmbed(embeddingText);
 
   const anhUrls = data.anhUrls || [];
   const doc = await CrmKnowledge.create({
@@ -39,7 +49,7 @@ async function updateKnowledge(id, data) {
   };
 
   const embeddingText = buildEmbeddingText(merged);
-  const embedding = await embed(embeddingText);
+  const embedding = await safeEmbed(embeddingText);
 
   const updated = await CrmKnowledge.findByIdAndUpdate(
     id,
@@ -80,6 +90,16 @@ async function deleteKnowledge(id) {
   return CrmKnowledge.findByIdAndDelete(id);
 }
 
+async function getAllActive({ includeEmbedding = false } = {}) {
+  const query = CrmKnowledge.find({ trangThai: 'active' }).sort({ createdAt: -1 });
+
+  if (includeEmbedding) {
+    return query.lean();
+  }
+
+  return query.select('-embedding').lean();
+}
+
 async function addImages(id, files) {
   const doc = await CrmKnowledge.findById(id);
   if (!doc) return null;
@@ -114,6 +134,7 @@ module.exports = {
   listKnowledge,
   getKnowledgeById,
   deleteKnowledge,
+  getAllActive,
   addImages,
   formatForClient,
 };

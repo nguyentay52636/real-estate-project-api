@@ -16,6 +16,7 @@ const notificationRouter = require("./notificationChat");
 const aiChatRouter = require("./aiChat");
 const uploadRouter = require("./upload");
 const crmKnowledgeRouter = require("./crmKnowledge");
+const crmKnowledgeCatalogRouter = require("./crmKnowledgeCatalog");
 router.use("/owner",ownerRouter)
 router.use("/favorite", favoriteRouter);
 router.use("/user", userRouter);
@@ -32,6 +33,7 @@ router.use("/room", roomRouter);
 router.use("/ai-chat", aiChatRouter);
 router.use("/upload", uploadRouter);
 router.use("/crm-knowledge", crmKnowledgeRouter);
+router.use("/crm-knowledge-catalog", crmKnowledgeCatalogRouter);
 
 
 
