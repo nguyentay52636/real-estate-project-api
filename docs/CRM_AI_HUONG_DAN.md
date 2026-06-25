@@ -50,7 +50,7 @@ API **đọc catalog** tách riêng — không cần JWT admin:
 | `GET` | `/api/crm-knowledge-catalog` | Lấy **toàn bộ** bài `active` (AI dùng danh sách này để tư vấn) |
 | `GET` | `/api/crm-knowledge-catalog/search?q=căn+2PN+Quận+2` | Tìm BĐS khớp câu hỏi, trả `items` + `score` |
 
-Pipeline AI (`aiAdvisoryPipeline`) gọi nội bộ `crmKnowledgeService.getAllActive()` → tìm trên catalog → gọi model chat.
+Pipeline AI (`aiAdvisoryPipeline`) **GET** `http://localhost:8000/api/crm-knowledge-catalog` → lấy toàn bộ danh sách `items` → tìm text khớp câu hỏi → gọi model chat tư vấn.
 
 ## Cách 4: API Admin CRUD
 
@@ -82,9 +82,8 @@ flowchart LR
   admin["Admin /admin/crm-knowledge"] --> db["MongoDB CrmKnowledge"]
   seed["npm run seed:crm"] --> db
   catalogApi["GET /crm-knowledge-catalog"] --> db
-  chat["Khách chat bubble AI"] --> getAll["getAllActive catalog"]
-  getAll --> db
-  chat --> search["Text / vector search trên catalog"]
+  chat["Khách chat bubble AI"] --> catalogApi
+  catalogApi --> search["Text search trên items"]
   search -->|khớp| aiReply["AI trả lời + ảnh"]
   search -->|không khớp| handoff["Chuyển nhân viên"]
 ```

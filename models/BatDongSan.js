@@ -1,8 +1,11 @@
 const mongoose = require("mongoose");
+const slugify = require("slugify");
 
 const BDSchema = new mongoose.Schema(
   {
     tieuDe: { type: String, required: true }, // Tiêu đề
+    slug: { type: String, unique: true, index: true }, // Slug URL-friendly
+
     moTa: { type: String, required: true }, // Mô tả chi tiết
     loaiBds: {
       type: String,
@@ -49,12 +52,12 @@ const BDSchema = new mongoose.Schema(
       category: String,
       location: String,
       priceDisplay: String,
-      rating: Number, // Điểm đánh giá trung bình (nếu tính toán động thì không cần lưu ở đây)
-      reviews: Number, // Số lượng đánh giá (nếu tính toán động thì không cần lưu ở đây)
+      rating: Number, // Điểm đánh giá trung bình
+      reviews: Number, // Số lượng đánh giá
       amenities: [String], // Các tiện ích
     },
 
-    colorGradient: String, // Gradient màu cho card (nếu cần)
+    colorGradient: String, // Gradient màu cho card
 
     // Thông tin bổ sung cho tab "Thông tin chi tiết"
     thongTinChiTiet: {
@@ -67,5 +70,55 @@ const BDSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// ──────────────────────────────────────────────
+// Helper: tạo slug duy nhất từ tieuDe
+// ──────────────────────────────────────────────
+async function generateUniqueSlug(tieuDe, excludeId = null) {
+  // Chuyển tiếng Việt → ASCII rồi slugify
+  const baseSlug = slugify(tieuDe, {
+    lower: true,
+    strict: true,
+    locale: "vi",
+  });
+
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (true) {
+    const query = { slug };
+    if (excludeId) query._id = { $ne: excludeId };
+
+    const existing = await mongoose.model("BatDongSan").findOne(query);
+    if (!existing) break;
+
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+
+  return slug;
+}
+
+// ──────────────────────────────────────────────
+// Auto-generate slug trước khi save (tạo mới)
+// ──────────────────────────────────────────────
+BDSchema.pre("save", async function (next) {
+  if (this.isNew || this.isModified("tieuDe")) {
+    this.slug = await generateUniqueSlug(this.tieuDe, this._id);
+  }
+  next();
+});
+
+// ──────────────────────────────────────────────
+// Auto-regenerate slug khi dùng findByIdAndUpdate
+// ──────────────────────────────────────────────
+BDSchema.pre("findOneAndUpdate", async function (next) {
+  const update = this.getUpdate();
+  if (update && update.tieuDe) {
+    const docId = this.getQuery()._id;
+    update.slug = await generateUniqueSlug(update.tieuDe, docId);
+  }
+  next();
+});
 
 module.exports = mongoose.model("BatDongSan", BDSchema);

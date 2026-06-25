@@ -1,7 +1,5 @@
 const logger = require('../utils/logger');
-const { getAllActive } = require('./crmKnowledgeService');
-
-const INDEX_NAME = process.env.VECTOR_SEARCH_INDEX || 'crm_knowledge_vector_index';
+const { fetchCatalogFromApi } = require('./crmKnowledgeCatalogClient');
 
 const VECTOR_THRESHOLD = parseFloat(process.env.VECTOR_SIMILARITY_THRESHOLD || '0.6');
 const TEXT_THRESHOLD = parseFloat(process.env.VECTOR_TEXT_SEARCH_THRESHOLD || '0.3');
@@ -52,58 +50,8 @@ function scoreDocByText(doc, terms) {
   return { ...stripEmbedding(doc), score: hits / terms.length };
 }
 
-async function searchWithAtlas(queryVector, catalog, { limit = 3 } = {}) {
-  const CrmKnowledge = require('../models/CrmKnowledge');
-  return CrmKnowledge.aggregate([
-    {
-      $vectorSearch: {
-        index: INDEX_NAME,
-        path: 'embedding',
-        queryVector,
-        numCandidates: Math.max(limit * 20, 50),
-        limit,
-        filter: { trangThai: { $eq: 'active' } },
-      },
-    },
-    {
-      $addFields: {
-        score: { $meta: 'vectorSearchScore' },
-      },
-    },
-    {
-      $project: {
-        embedding: 0,
-      },
-    },
-  ]);
-}
-
-async function searchWithFallback(queryVector, catalog, { limit = 3 } = {}) {
-  return catalog
-    .filter((doc) => doc.embedding?.length)
-    .map((doc) => ({
-      ...stripEmbedding(doc),
-      score: cosineSimilarity(queryVector, doc.embedding),
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
-}
-
-async function searchSimilar(queryVector, catalog, options = {}) {
-  const { limit = 3, minScore = 0 } = options;
-
-  try {
-    const results = await searchWithAtlas(queryVector, catalog, { limit });
-    return results.filter((r) => r.score >= minScore);
-  } catch (error) {
-    logger.warn('[VectorSearch] Atlas $vectorSearch failed, using fallback:', error.message);
-    const results = await searchWithFallback(queryVector, catalog, { limit });
-    return results.filter((r) => r.score >= minScore);
-  }
-}
-
-/** Tìm theo từ khóa trên catalog CrmKnowledge (getAllActive) */
-async function searchByText(query, catalog, { limit = 3 } = {}) {
+/** Tìm theo từ khóa trên danh sách catalog (từ API hoặc DB) */
+function searchByText(query, catalog, { limit = 3 } = {}) {
   const terms = String(query)
     .toLowerCase()
     .split(/\s+/)
@@ -119,36 +67,28 @@ async function searchByText(query, catalog, { limit = 3 } = {}) {
     .slice(0, limit);
 }
 
+/**
+ * AI pipeline: GET /api/crm-knowledge-catalog → tìm trên danh sách → trả kết quả
+ */
 async function searchProperties(message, options = {}) {
-  const { embed, shouldSkipEmbedApi } = require('./embeddingService');
-  const catalog = await getAllActive({ includeEmbedding: true });
+  const catalog = await fetchCatalogFromApi();
 
-  logger.debug(`[VectorSearch] Catalog active: ${catalog.length} bài`);
+  logger.debug(`[VectorSearch] Catalog từ API: ${catalog.length} bài`);
 
   if (!catalog.length) {
     return { results: [], mode: 'catalog' };
   }
 
-  if (shouldSkipEmbedApi()) {
-    logger.info('[VectorSearch] Embed skipped (no credits), dùng text search trên catalog');
-    return { results: await searchByText(message, catalog, options), mode: 'text' };
-  }
-
-  try {
-    const queryVector = await embed(message);
-    return { results: await searchSimilar(queryVector, catalog, options), mode: 'vector' };
-  } catch (error) {
-    logger.warn('[VectorSearch] Embed failed, dùng text search trên catalog:', error.message);
-    return { results: await searchByText(message, catalog, options), mode: 'text' };
-  }
+  const results = searchByText(message, catalog, options);
+  return { results, mode: 'text' };
 }
 
 module.exports = {
-  searchSimilar,
   searchByText,
   searchProperties,
   cosineSimilarity,
   getThresholdForMode,
   VECTOR_THRESHOLD,
   TEXT_THRESHOLD,
+  scoreDocByText,
 };

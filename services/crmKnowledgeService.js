@@ -2,6 +2,7 @@ const CrmKnowledge = require('../models/CrmKnowledge');
 const logger = require('../utils/logger');
 const { embed, buildEmbeddingText } = require('./embeddingService');
 const { uploadFromBuffer } = require('../utils/cloudinaryService');
+const { clearCatalogCache } = require('./crmKnowledgeCatalogClient');
 
 async function safeEmbed(text) {
   try {
@@ -24,6 +25,8 @@ async function createKnowledge(data, userId) {
     embedding,
     nguoiTao: userId,
   });
+
+  clearCatalogCache();
 
   const result = doc.toObject();
   delete result.embedding;
@@ -59,6 +62,7 @@ async function updateKnowledge(id, data) {
     .select('-embedding')
     .populate('nguoiTao', 'ten email');
 
+  clearCatalogCache();
   return updated;
 }
 
@@ -87,7 +91,9 @@ async function getKnowledgeById(id) {
 }
 
 async function deleteKnowledge(id) {
-  return CrmKnowledge.findByIdAndDelete(id);
+  const result = await CrmKnowledge.findByIdAndDelete(id);
+  if (result) clearCatalogCache();
+  return result;
 }
 
 async function getAllActive({ includeEmbedding = false } = {}) {
@@ -116,6 +122,7 @@ async function addImages(id, files) {
   }
   await doc.save();
 
+  clearCatalogCache();
   const result = doc.toObject();
   delete result.embedding;
   return result;

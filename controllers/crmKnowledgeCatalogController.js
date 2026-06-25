@@ -1,5 +1,5 @@
 const crmKnowledgeService = require('../services/crmKnowledgeService');
-const { searchProperties } = require('../services/vectorSearchService');
+const { searchByText } = require('../services/vectorSearchService');
 
 const crmKnowledgeCatalogController = {
   /** GET /api/crm-knowledge-catalog — toàn bộ BĐS active cho AI / catalog */
@@ -25,11 +25,12 @@ const crmKnowledgeCatalogController = {
       }
 
       const limit = Math.min(parseInt(req.query.limit, 10) || 3, 20);
-      const { results, mode } = await searchProperties(q, { limit });
+      const catalog = await crmKnowledgeService.getAllActive();
+      const results = searchByText(q, catalog, { limit });
 
       return res.status(200).json({
         message: 'Tìm kiếm catalog thành công',
-        mode,
+        mode: 'text',
         total: results.length,
         items: results,
       });

@@ -1,6 +1,8 @@
 /**
- * Seed mẫu CrmKnowledge để AI chat có dữ liệu khớp (text search / vector).
- * Run: node scripts/seed-crm-knowledge.js
+ * Seed mẫu CrmKnowledge vào MongoDB.
+ * Dữ liệu sẽ xuất hiện tại GET /api/crm-knowledge-catalog — AI đọc API đó để tư vấn.
+ *
+ * Run: npm run seed:crm
  */
 require('dotenv').config();
 const mongoose = require('mongoose');
@@ -51,7 +53,10 @@ async function main() {
   }
 
   const total = await CrmKnowledge.countDocuments({ trangThai: 'active' });
+  const base = (process.env.BASE_URL || `http://localhost:${process.env.PORT || 8000}`).replace(/\/$/, '');
+
   console.log(`\nHoàn tất. Thêm ${created} bài. Tổng active: ${total}`);
+  console.log(`Kiểm tra catalog API: curl ${base}/api/crm-knowledge-catalog`);
   console.log('Thử chat: "căn 2 phòng Quận 2" hoặc "studio Quận 1"');
   await mongoose.disconnect();
 }

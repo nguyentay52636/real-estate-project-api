@@ -1,23 +1,28 @@
-// server/routes/property.js
+// routes/property.js
 const express = require("express");
 const router = express.Router();
 const propertyController = require("../controllers/propertyController");
 
-// GET /api/properties
-router.get("/", propertyController.getAllProperty);
-// GET /api/properties/:district
-router.get("/:district", propertyController.getPropertiesByDistrict);
 
-// GET /api/properties/:id
+router.get("/", propertyController.getAllProperty);
+
+// GET /api/property/slug/:slug    — Lấy chi tiết theo slug (SEO URL)
+router.get("/slug/:slug", propertyController.getPropertyBySlug);
+
+// GET /api/property/district/:district — Lấy theo quận/huyện
+router.get("/district/:district", propertyController.getPropertiesByDistrict);
+
+// GET /api/property/user/:userId  — Lấy theo chủ sở hữu
+router.get("/user/:userId", propertyController.getPropertiesByUser);
+
 router.get("/:id", propertyController.getPropertyById);
 
-// POST /api/properties
 router.post("/", propertyController.createProperty);
 
-// PUT /api/properties/:id
 router.put("/:id", propertyController.updateProperty);
+router.patch("/:id/status", propertyController.updatePropertyStatus);
 
-// DELETE /api/properties/:id
+// DELETE /api/property/:id        — Xóa bất động sản
 router.delete("/:id", propertyController.deleteProperty);
 
 module.exports = router;

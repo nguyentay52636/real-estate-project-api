@@ -11,14 +11,14 @@ const handleUploadError = (err, req, res, next) => {
   next();
 };
 
-router.post('/', middlewareController.verifyAdmin, crmKnowledgeController.create);
-router.get('/', middlewareController.verifyAdmin, crmKnowledgeController.list);
-router.get('/:id', middlewareController.verifyAdmin, crmKnowledgeController.getById);
-router.put('/:id', middlewareController.verifyAdmin, crmKnowledgeController.update);
-router.delete('/:id', middlewareController.verifyAdmin, crmKnowledgeController.remove);
+router.post('/', middlewareController.verifyToken, crmKnowledgeController.create);
+router.get('/', middlewareController.verifyToken, crmKnowledgeController.list);
+router.get('/:id', middlewareController.verifyToken, crmKnowledgeController.getById);
+router.put('/:id', middlewareController.verifyToken, crmKnowledgeController.update);
+router.delete('/:id', middlewareController.verifyToken, crmKnowledgeController.remove);
 router.post(
   '/:id/images',
-  middlewareController.verifyAdmin,
+  middlewareController.verifyToken,
   uploadMemory.array('files', 10),
   handleUploadError,
   crmKnowledgeController.uploadImages
