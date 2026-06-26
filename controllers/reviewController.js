@@ -1,7 +1,8 @@
-const Review = require("../models/DanhGia");
-const NguoiDung = require("../models/nguoidung");
-const BatDongSan = require("../models/BatDongSan");
-const mongoose = require("mongoose");
+import Review from '../models/Rating.js';
+import NguoiDung from '../models/User.js';
+import BatDongSan from '../models/Property.js';
+import mongoose from 'mongoose';
+
 const reviewController = {
   // Lấy tất cả đánh giá
   getAllReviews: async (req, res) => {
@@ -186,4 +187,4 @@ const reviewController = {
   },
 };
 
-module.exports = reviewController;
+export default reviewController;

@@ -1,6 +1,9 @@
-const { hasEmbeddingProvider } = require('./embeddingService');
-const { hasChatProvider } = require('./geminiChatService');
-const { getChatModelChain } = require('./openRouterService');
+import { hasEmbeddingProvider } from './embeddingService.js';
+import { hasChatProvider } from './geminiChatService.js';
+import { getChatModelChain } from './openRouterService.js';
+import logger from '../utils/logger.js';
+import { searchProperties, getThresholdForMode } from './vectorSearchService.js';
+import { generateAdvisoryReply } from './geminiChatService.js';
 
 const HANDOFF_KEYWORDS = [
   'mặc cả',
@@ -82,9 +85,6 @@ function hasAiProvider() {
 }
 
 async function processAdvisoryMessage(message, sessionId, conversationHistory = []) {
-  const { searchProperties, getThresholdForMode } = require('./vectorSearchService');
-  const { generateAdvisoryReply } = require('./geminiChatService');
-  const logger = require('../utils/logger');
 
   const resolvedSessionId = sessionId || `session_${Date.now()}`;
   const history = normalizeHistory(conversationHistory);
@@ -159,7 +159,5 @@ async function processAdvisoryMessage(message, sessionId, conversationHistory = 
   }
 }
 
-module.exports = {
-  processAdvisoryMessage,
-  shouldHandoffByKeyword,
-};
+export { processAdvisoryMessage, shouldHandoffByKeyword };
+export default { processAdvisoryMessage, shouldHandoffByKeyword };

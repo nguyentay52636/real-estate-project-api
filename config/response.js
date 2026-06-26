@@ -6,6 +6,5 @@ const responseApi = (res, code, data, message) => {
     date: new Date()
 })
 }
-module.exports = {
-    responseApi
-}
+export { responseApi };
+export default { responseApi };

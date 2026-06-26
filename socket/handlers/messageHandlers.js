@@ -1,16 +1,14 @@
-const TinNhan = require('../../models/TinNhan');
-const PhongChat = require('../../models/PhongChat');
-const { createMessage, updateMessage, deleteMessage } = require('../../controllers/messageController');
-const {
-  emitError,
+import TinNhan from '../../models/Message.js';
+import PhongChat from '../../models/ChatRoom.js';
+import { createMessage, updateMessage, deleteMessage } from '../../controllers/messageController.js';
+import { emitError,
   isValidId,
   isAdmin,
   getOtherActiveMembers,
   getRoomOrError,
   notifyMembers,
   populateMessage,
-  wrapHandler,
-} = require('../helpers/socketHelpers');
+  wrapHandler, } from '../helpers/socketHelpers.js';
 
 function registerMessageHandlers(socket, io) {
   socket.on(
@@ -291,4 +289,5 @@ function registerMessageHandlers(socket, io) {
   );
 }
 
-module.exports = { registerMessageHandlers };
+export { registerMessageHandlers };
+export default { registerMessageHandlers };

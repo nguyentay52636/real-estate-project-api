@@ -1,6 +1,7 @@
-const express = require("express");
+import express from 'express';
+import viewingsController from '../controllers/viewingsController.js';
+
 const router = express.Router();
-const viewingsController = require("../controllers/viewingsController");
 
 // GET /api/viewings
 router.get("/", viewingsController.getAllViewings);
@@ -17,4 +18,4 @@ router.put("/:id", viewingsController.updateViewing);
 // DELETE /api/viewings/:id
 router.delete("/:id", viewingsController.deleteViewing);
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from 'mongoose';
 
 const VaiTroSchema = new mongoose.Schema(
   {
@@ -19,4 +19,4 @@ const VaiTroSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.models.VaiTro || mongoose.model("VaiTro", VaiTroSchema);
+export default mongoose.models.VaiTro || mongoose.model("VaiTro", VaiTroSchema);

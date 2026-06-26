@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const slugify = require("slugify");
+import mongoose from 'mongoose';
+import slugify from 'slugify';
 
 const BDSchema = new mongoose.Schema(
   {
@@ -121,4 +121,4 @@ BDSchema.pre("findOneAndUpdate", async function (next) {
   next();
 });
 
-module.exports = mongoose.model("BatDongSan", BDSchema);
+export default mongoose.model("BatDongSan", BDSchema);

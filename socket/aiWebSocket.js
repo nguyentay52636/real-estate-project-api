@@ -1,7 +1,9 @@
-const { WebSocketServer } = require('ws');
-const logger = require('../utils/logger');
-const { processUserMessage } = require('../controllers/aiChatController');
-const { createHandoffTicket } = require('../services/handoffService');
+import logger from '../utils/logger.js';
+import { WebSocketServer } from 'ws';
+import { processUserMessage } from '../controllers/aiChatController.js';
+import { createHandoffTicket } from '../services/handoffService.js';
+import { hasEmbeddingProvider } from '../services/embeddingService.js';
+import { hasChatProvider } from '../services/geminiChatService.js';
 
 const WS_PATH = '/ws';
 
@@ -86,9 +88,6 @@ async function handleChatMessage(ws, { message, sessionId, userId, customerName,
     }));
     return;
   }
-
-  const { hasEmbeddingProvider } = require('../services/embeddingService');
-  const { hasChatProvider } = require('../services/geminiChatService');
 
   if (!hasEmbeddingProvider() || !hasChatProvider()) {
     ws.send(JSON.stringify({
@@ -216,4 +215,5 @@ function setupAiWebSocket(server) {
   return wss;
 }
 
-module.exports = { setupAiWebSocket, WS_PATH };
+export { setupAiWebSocket, WS_PATH };
+export default { setupAiWebSocket, WS_PATH };

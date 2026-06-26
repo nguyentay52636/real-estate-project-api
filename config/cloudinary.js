@@ -1,4 +1,4 @@
-const { v2: cloudinary } = require('cloudinary');
+import { v2 as cloudinary } from 'cloudinary';
 
 const REQUIRED_VARS = [
   'CLOUDINARY_CLOUD_NAME',
@@ -35,4 +35,4 @@ async function verifyCloudinaryConnection() {
 cloudinary.getMissingEnvVars = getMissingEnvVars;
 cloudinary.verifyConnection = verifyCloudinaryConnection;
 
-module.exports = cloudinary;
+export default cloudinary;

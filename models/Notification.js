@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ThongBaoSchema = new mongoose.Schema({
   nguoiNhanId: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung', required: true },
@@ -12,4 +12,4 @@ const ThongBaoSchema = new mongoose.Schema({
   versionKey: false
 });
 
-module.exports = mongoose.model('ThongBao', ThongBaoSchema);
+export default mongoose.model('ThongBao', ThongBaoSchema);

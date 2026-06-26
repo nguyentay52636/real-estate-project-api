@@ -1,4 +1,5 @@
-const VaiTro = require("../models/VaiTro");
+import VaiTro from '../models/Role.js';
+
 const getAllRoles = async (req, res) => {
     try {
         const roles = await VaiTro.find();
@@ -8,6 +9,5 @@ const getAllRoles = async (req, res) => {
     }
 }
 
-module.exports = {
-    getAllRoles
-}
+export { getAllRoles };
+export default { getAllRoles };

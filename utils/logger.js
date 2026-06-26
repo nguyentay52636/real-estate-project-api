@@ -13,4 +13,4 @@ const logger = {
   error: (...args) => console.error(...args),
 };
 
-module.exports = logger;
+export default logger;

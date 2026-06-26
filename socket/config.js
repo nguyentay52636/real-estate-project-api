@@ -15,4 +15,5 @@ const socketConfig = {
   maxHttpBufferSize: 1e6,
 };
 
-module.exports = { socketConfig };
+export { socketConfig };
+export default { socketConfig };

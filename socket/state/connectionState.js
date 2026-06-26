@@ -1,4 +1,4 @@
-const PhongChat = require('../../models/PhongChat');
+import PhongChat from '../../models/ChatRoom.js';
 
 function createConnectionState(io) {
   const userRooms = new Map();
@@ -77,4 +77,5 @@ function createConnectionState(io) {
   };
 }
 
-module.exports = { createConnectionState };
+export { createConnectionState };
+export default { createConnectionState };

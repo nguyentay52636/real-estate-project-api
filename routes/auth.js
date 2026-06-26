@@ -1,8 +1,9 @@
-const express = require("express");
+import express from 'express';
+import authController from '../controllers/authController.js';
+import middlewareController from '../controllers/middlewareController.js';
+import facebookController from '../controllers/facebookController.js';
+
 const router = express.Router();
-const authController = require("../controllers/authController");
-const middlewareController = require("../controllers/middlewareController");
-const facebookController = require("../controllers/facebookController");
 
 // POST /auth/register
 router.post("/register", authController.register);
@@ -30,4 +31,4 @@ router.get('/user', facebookController.userInfo);
 router.get('/facebook/debug', facebookController.debugFacebookConfig);
 router.get('/facebook/test', facebookController.testFacebookApi);
 
-module.exports = router;
+export default router;

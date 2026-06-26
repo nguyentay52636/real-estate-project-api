@@ -1,5 +1,5 @@
-const viewings = require("../models/LichXemNha");
-const mongoose = require("mongoose");
+import viewings from '../models/ViewingSchedule.js';
+import mongoose from 'mongoose';
 
 const viewingsController = {
   // Lấy tất cả lịch xem nhà
@@ -97,4 +97,4 @@ const viewingsController = {
   },
 };
 
-module.exports = viewingsController;
+export default viewingsController;

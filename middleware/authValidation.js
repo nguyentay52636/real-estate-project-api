@@ -1,4 +1,4 @@
-const Joi = require("joi");
+import Joi from 'joi';
 
 const registerValidation = (data) => {
   const schema = Joi.object({
@@ -44,4 +44,5 @@ const facebookUserValidation = (data) => {
   return schema.validate(data);
 };
 
-module.exports = { registerValidation, loginValidation, facebookUserValidation };
+export { registerValidation, loginValidation, facebookUserValidation };
+export default { registerValidation, loginValidation, facebookUserValidation };

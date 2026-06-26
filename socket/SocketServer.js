@@ -1,13 +1,13 @@
-const socketIo = require('socket.io');
-const { setIO } = require('./ioInstance');
-const { socketConfig } = require('./config');
-const { authMiddleware } = require('./middleware/auth');
-const { createConnectionState } = require('./state/connectionState');
-const { onConnection } = require('./handlers/connectionHandlers');
-const logger = require('../utils/logger');
+import { Server } from 'socket.io';
+import logger from '../utils/logger.js';
+import { setIO } from './ioInstance.js';
+import { socketConfig } from './config.js';
+import { authMiddleware } from './middleware/auth.js';
+import { createConnectionState } from './state/connectionState.js';
+import { onConnection } from './handlers/connectionHandlers.js';
 
 const setupSocket = (server) => {
-  const io = socketIo(server, socketConfig);
+  const io = new Server(server, socketConfig);
   const state = createConnectionState(io);
 
   io.use(authMiddleware);
@@ -29,4 +29,5 @@ const setupSocket = (server) => {
   return io;
 };
 
-module.exports = { setupSocket };
+export { setupSocket };
+export default { setupSocket };

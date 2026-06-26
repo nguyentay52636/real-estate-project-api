@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const LichSchema = new mongoose.Schema({
   nguoiDungId: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung' },
@@ -8,4 +8,4 @@ const LichSchema = new mongoose.Schema({
   trangThai: { type: String, enum: ['cho_xac_nhan', 'da_xac_nhan', 'da_huy'], default: 'cho_xac_nhan' }
 });
 
-module.exports = mongoose.model('LichXemNha', LichSchema);
+export default mongoose.model('LichXemNha', LichSchema);

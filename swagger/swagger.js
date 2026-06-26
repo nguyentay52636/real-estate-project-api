@@ -1,8 +1,11 @@
 // server/swagger/swagger.js
-const swaggerJSDoc = require('swagger-jsdoc');
-const swaggerUi = require('swagger-ui-express');
-const path = require('path');
-const fs = require('fs');
+import swaggerJSDoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
+import path from 'path';
+import fs from 'fs';
+
+import { getDirname } from '../utils/esm.js';
+const dirname = getDirname(import.meta.url);
 
 const options = {
   definition: {
@@ -17,16 +20,16 @@ const options = {
     ],
   },
   apis: [
-    path.join(__dirname, '../routes/*.js'),      
-    path.join(__dirname, './*.js'),           
+    path.join(dirname, '../routes/*.js'),      
+    path.join(dirname, './*.js'),           
   ],
 };
 
 const swaggerSpec = swaggerJSDoc(options);
 
 // Load custom styles and scripts for search and dark mode toggle
-const customCss = fs.readFileSync(path.join(__dirname, 'swagger-custom.css'), 'utf8');
-const customJs = fs.readFileSync(path.join(__dirname, 'swagger-custom.js'), 'utf8');
+const customCss = fs.readFileSync(path.join(dirname, 'swagger-custom.css'), 'utf8');
+const customJs = fs.readFileSync(path.join(dirname, 'swagger-custom.js'), 'utf8');
 
 const swaggerUiOptions = {
   swaggerOptions: {
@@ -36,5 +39,5 @@ const swaggerUiOptions = {
   customJsStr: customJs,
 };
 
-module.exports = { swaggerSpec, swaggerUi, swaggerUiOptions };
-
+export { swaggerSpec, swaggerUi, swaggerUiOptions };
+export default { swaggerSpec, swaggerUi, swaggerUiOptions };

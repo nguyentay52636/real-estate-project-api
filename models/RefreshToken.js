@@ -1,5 +1,4 @@
-const { required } = require('joi')
-const mongoose = require('mongoose')
+import mongoose from 'mongoose';
 
 const refreshTokenSchema = new mongoose.Schema({
     token : {type :String , required : true},
@@ -7,5 +6,7 @@ const refreshTokenSchema = new mongoose.Schema({
     createAt:{ type : Date , default : Date.now,expires:'365d'}, // tự xóa sau 1 nămm
 })
 
-module.exports=mongoose.model('RefreshToken',refreshTokenSchema)
+const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);
+
+export default RefreshToken;
 

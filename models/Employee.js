@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from 'mongoose';
 
 const NhanVienSchema = new mongoose.Schema(
   {
@@ -43,4 +43,4 @@ const NhanVienSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.models.NhanVien || mongoose.model("NhanVien", NhanVienSchema);
+export default mongoose.models.NhanVien || mongoose.model("NhanVien", NhanVienSchema);

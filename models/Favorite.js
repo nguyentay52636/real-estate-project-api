@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const YeuThichSchema = new mongoose.Schema({
   nguoiDungId: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung' ,required: true },
@@ -8,4 +8,4 @@ const YeuThichSchema = new mongoose.Schema({
   versionKey: false,
 });
 
-module.exports = mongoose.model('YeuThich', YeuThichSchema);
+export default mongoose.model('YeuThich', YeuThichSchema);

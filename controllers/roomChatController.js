@@ -1,7 +1,6 @@
-
-const PhongChat = require('../models/PhongChat');
-const TinNhan = require('../models/TinNhan');
-const { createNotification } = require('./notificationChatController');
+import PhongChat from '../models/ChatRoom.js';
+import TinNhan from '../models/Message.js';
+import { createNotification } from './notificationChatController.js';
 
 const getAllRom = async (req, res) => {
   try {
@@ -748,18 +747,5 @@ const transferAdmin = async (req, res) => {
   }
 };
 
-module.exports = {
-  getAllRom,
-  getRoomsOfUser,
-  getRoomById,
-  createRoom,
-  findOrCreatePrivateRoom,
-  addMessageToRoom,
-  removeMessageFromRoom,
-  updateRoom,
-  deleteRoom,
-  searchRooms,
-  addMemberToRoom,
-  leaveRoom,
-  transferAdmin,
-};
+export { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, leaveRoom, transferAdmin };
+export default { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, leaveRoom, transferAdmin };

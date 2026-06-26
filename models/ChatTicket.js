@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ChatTicketSchema = new mongoose.Schema({
   sessionId: { type: String, required: true, index: true },
@@ -26,4 +26,4 @@ const ChatTicketSchema = new mongoose.Schema({
   versionKey: false,
 });
 
-module.exports = mongoose.model('ChatTicket', ChatTicketSchema);
+export default mongoose.model('ChatTicket', ChatTicketSchema);

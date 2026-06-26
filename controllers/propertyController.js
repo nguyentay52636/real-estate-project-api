@@ -1,5 +1,5 @@
-const Property = require("../models/BatDongSan");
-const NguoiDung = require("../models/Nguoidung");
+import Property from '../models/Property.js';
+import NguoiDung from '../models/User.js';
 
 const propertyController = {
   // ─────────────────────────────────────────────────────────────
@@ -331,4 +331,4 @@ const propertyController = {
   },
 };
 
-module.exports = propertyController;
+export default propertyController;

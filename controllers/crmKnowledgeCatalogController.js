@@ -1,5 +1,5 @@
-const crmKnowledgeService = require('../services/crmKnowledgeService');
-const { searchByText } = require('../services/vectorSearchService');
+import crmKnowledgeService from '../services/crmKnowledgeService.js';
+import { searchByText } from '../services/vectorSearchService.js';
 
 const crmKnowledgeCatalogController = {
   /** GET /api/crm-knowledge-catalog — toàn bộ BĐS active cho AI / catalog */
@@ -40,4 +40,4 @@ const crmKnowledgeCatalogController = {
   },
 };
 
-module.exports = crmKnowledgeCatalogController;
+export default crmKnowledgeCatalogController;

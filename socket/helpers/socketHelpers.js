@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
-const PhongChat = require('../../models/PhongChat');
-const TinNhan = require('../../models/TinNhan');
-const { createNotification } = require('../../controllers/notificationChatController');
-const logger = require('../../utils/logger');
+import mongoose from 'mongoose';
+import PhongChat from '../../models/ChatRoom.js';
+import TinNhan from '../../models/Message.js';
+import logger from '../../utils/logger.js';
+import { createNotification } from '../../controllers/notificationChatController.js';
 
 function emitError(socket, code, message, error) {
   socket.emit('error', { code, message, ...(error ? { error } : {}) });
@@ -105,16 +105,5 @@ function wrapHandler(socket, handler, defaultCode = 'SERVER_ERROR') {
   };
 }
 
-module.exports = {
-  emitError,
-  isValidId,
-  isActiveMember,
-  isAdmin,
-  getOtherActiveMembers,
-  getRoomOrError,
-  notifyMembers,
-  createSystemMessage,
-  populateRoom,
-  populateMessage,
-  wrapHandler,
-};
+export { emitError, isValidId, isActiveMember, isAdmin, getOtherActiveMembers, getRoomOrError, notifyMembers, createSystemMessage, populateRoom, populateMessage, wrapHandler };
+export default { emitError, isValidId, isActiveMember, isAdmin, getOtherActiveMembers, getRoomOrError, notifyMembers, createSystemMessage, populateRoom, populateMessage, wrapHandler };

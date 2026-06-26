@@ -1,7 +1,7 @@
-const Owner = require("../models/chuNha");
-const User = require("../models/nguoidung");
-const mongoose = require("mongoose");
-const { responseApi } = require("../config/response");
+import Owner from '../models/Owner.js';
+import User from '../models/User.js';
+import mongoose from 'mongoose';
+import { responseApi } from '../config/response.js';
 
 // Lấy danh sách chủ nhà
 const getOwners = async (req, res) => {
@@ -92,10 +92,5 @@ const deleteOwner = async (req, res) => {
   }
 };
 
-module.exports = {
-  getOwners,
-  getOwnerById,
-  createOwner,
-  updateOwner,
-  deleteOwner,
-};
+export { getOwners, getOwnerById, createOwner, updateOwner, deleteOwner };
+export default { getOwners, getOwnerById, createOwner, updateOwner, deleteOwner };

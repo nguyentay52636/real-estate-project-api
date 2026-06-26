@@ -1,15 +1,18 @@
-const logger = require('../utils/logger');
-const {
-  createHandoffTicket,
-  getHandoffStatus,
+import logger from '../utils/logger.js';
+import CrmKnowledge from '../models/CrmKnowledge.js';
+import { createHandoffTicket,
+  getHandoffStatus as fetchHandoffStatus,
   acceptHandoffTicket,
   getPendingTickets,
   getActiveNhanVienUsers,
   formatTicketForClient,
   isNhanVien,
   dismissHandoffTicket,
-  dismissAllHandoffNotifications,
-} = require('../services/handoffService');
+  dismissAllHandoffNotifications, } from '../services/handoffService.js';
+import { processAdvisoryMessage } from '../services/aiAdvisoryPipeline.js';
+import { hasEmbeddingProvider } from '../services/embeddingService.js';
+import { hasChatProvider } from '../services/geminiChatService.js';
+import NguoiDung from '../models/User.js';
 
 function normalizeHandoffPayload(body = {}) {
   const userId =
@@ -48,18 +51,11 @@ function normalizeHandoffPayload(body = {}) {
   };
 }
 
-const { processAdvisoryMessage } = require('../services/aiAdvisoryPipeline');
-const { hasEmbeddingProvider } = require('../services/embeddingService');
-const { hasChatProvider } = require('../services/geminiChatService');
-const CrmKnowledge = require('../models/CrmKnowledge');
-
-async function processUserMessage(message, sessionId, conversationHistory = []) {
+export async function processUserMessage(message, sessionId, conversationHistory = []) {
   return processAdvisoryMessage(message, sessionId, conversationHistory);
 }
 
-exports.processUserMessage = processUserMessage;
-
-exports.sendAIMessage = async (req, res) => {
+export const sendAIMessage = async (req, res) => {
   try {
     const { message, conversationHistory = [] } = req.body;
     const handoffInput = normalizeHandoffPayload(req.body);
@@ -105,8 +101,7 @@ exports.sendAIMessage = async (req, res) => {
   }
 };
 
-
-exports.requestHandoff = async (req, res) => {
+export const requestHandoff = async (req, res) => {
   try {
     const { sessionId, userId, reason, conversationHistory, customerName } = normalizeHandoffPayload(req.body);
 
@@ -117,7 +112,6 @@ exports.requestHandoff = async (req, res) => {
       });
     }
 
-    const NguoiDung = require('../models/Nguoidung');
     const customer = await NguoiDung.findById(userId).populate('vaiTro', 'ten');
     if (!customer) {
       return res.status(404).json({ success: false, error: 'Không tìm thấy người dùng' });
@@ -167,11 +161,10 @@ exports.requestHandoff = async (req, res) => {
   }
 };
 
-
-exports.getHandoffStatus = async (req, res) => {
+export const getHandoffStatus = async (req, res) => {
   try {
     const { handoffToken } = req.params;
-    const status = await getHandoffStatus(handoffToken);
+    const status = await fetchHandoffStatus(handoffToken);
 
     if (!status) {
       return res.status(404).json({ success: false, error: 'Không tìm thấy ticket handoff' });
@@ -184,8 +177,7 @@ exports.getHandoffStatus = async (req, res) => {
   }
 };
 
-
-exports.acceptHandoff = async (req, res) => {
+export const acceptHandoff = async (req, res) => {
   try {
     const { handoffToken } = req.params;
     const agentId = req.user?.id;
@@ -208,8 +200,7 @@ exports.acceptHandoff = async (req, res) => {
   }
 };
 
-
-exports.getPendingHandoffs = async (req, res) => {
+export const getPendingHandoffs = async (req, res) => {
   try {
     const agentId = req.user?.id;
     const agentIsNhanVien = await isNhanVien(agentId);
@@ -232,8 +223,7 @@ exports.getPendingHandoffs = async (req, res) => {
   }
 };
 
-
-exports.dismissHandoff = async (req, res) => {
+export const dismissHandoff = async (req, res) => {
   try {
     const agentId = req.user?.id;
     const { handoffToken } = req.params;
@@ -250,8 +240,7 @@ exports.dismissHandoff = async (req, res) => {
   }
 };
 
-
-exports.dismissAllHandoffs = async (req, res) => {
+export const dismissAllHandoffs = async (req, res) => {
   try {
     const agentId = req.user?.id;
     const result = await dismissAllHandoffNotifications(agentId);
@@ -262,8 +251,7 @@ exports.dismissAllHandoffs = async (req, res) => {
   }
 };
 
-
-exports.sendHumanMessage = (req, res) => {
+export const sendHumanMessage = (req, res) => {
   try {
     const { handoffToken, agentId, agentName, message, sessionId } = req.body;
 
@@ -296,8 +284,7 @@ exports.sendHumanMessage = (req, res) => {
   }
 };
 
-
-exports.searchApartment = async (req, res) => {
+export const searchApartment = async (req, res) => {
   try {
     const { district, maxPrice, minPrice, quanHuyen } = req.body;
 

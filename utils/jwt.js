@@ -1,6 +1,6 @@
-const jwt = require("jsonwebtoken");
+import jwt from 'jsonwebtoken';
 
-exports.generateAccessToken = (user) => {
+export const generateAccessToken = (user) => {
   return jwt.sign(
     { id: user._id, vaiTro: user.vaiTro },
     process.env.JWT_ACCESS_KEY,
@@ -8,7 +8,7 @@ exports.generateAccessToken = (user) => {
   );
 };
 
-exports.generateRefreshToken = (user) => {
+export const generateRefreshToken = (user) => {
   return jwt.sign(
     { id: user._id, vaiTro: user.vaiTro },
     process.env.JWT_REFRESH_SECRET,
@@ -16,6 +16,6 @@ exports.generateRefreshToken = (user) => {
   );
 };
 
-exports.verifyRefreshToken = (token) => {
+export const verifyRefreshToken = (token) => {
   return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
 };

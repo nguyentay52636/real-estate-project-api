@@ -1,12 +1,14 @@
+import dotenv from 'dotenv';
+dotenv.config();
+import mongoose from 'mongoose';
+import CrmKnowledge from '../models/CrmKnowledge.js';
+
 /**
  * Seed mẫu CrmKnowledge vào MongoDB.
  * Dữ liệu sẽ xuất hiện tại GET /api/crm-knowledge-catalog — AI đọc API đó để tư vấn.
  *
  * Run: npm run seed:crm
  */
-require('dotenv').config();
-const mongoose = require('mongoose');
-const CrmKnowledge = require('../models/CrmKnowledge');
 
 const SAMPLES = [
   {

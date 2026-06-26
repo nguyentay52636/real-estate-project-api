@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const crmKnowledgeSchema = new mongoose.Schema(
   {
@@ -33,4 +33,4 @@ const crmKnowledgeSchema = new mongoose.Schema(
 
 crmKnowledgeSchema.index({ trangThai: 1 });
 
-module.exports = mongoose.model('CrmKnowledge', crmKnowledgeSchema);
+export default mongoose.model('CrmKnowledge', crmKnowledgeSchema);

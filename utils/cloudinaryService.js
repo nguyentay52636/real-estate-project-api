@@ -1,4 +1,4 @@
-const cloudinary = require('../config/cloudinary');
+import cloudinary from '../config/cloudinary.js';
 
 function extractPublicId(url) {
   if (!url?.includes('res.cloudinary.com')) return null;
@@ -30,8 +30,5 @@ async function destroyByUrl(url) {
   return cloudinary.uploader.destroy(publicId);
 }
 
-module.exports = {
-  extractPublicId,
-  uploadFromBuffer,
-  destroyByUrl,
-};
+export { extractPublicId, uploadFromBuffer, destroyByUrl };
+export default { extractPublicId, uploadFromBuffer, destroyByUrl };

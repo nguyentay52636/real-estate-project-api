@@ -1,5 +1,5 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { chatWithOpenRouter, hasOpenRouterKey } = require('./openRouterService');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { chatWithOpenRouter, hasOpenRouterKey } from './openRouterService.js';
 
 const GEMINI_CHAT_MODEL = process.env.GEMINI_CHAT_MODEL || 'gemini-2.0-flash';
 
@@ -80,8 +80,5 @@ async function generateAdvisoryReply({ userQuestion, property, conversationHisto
   throw new Error('Cần OPEN_ROUTER_KEY trong .env');
 }
 
-module.exports = {
-  formatPropertyFacts,
-  generateAdvisoryReply,
-  hasChatProvider,
-};
+export { formatPropertyFacts, generateAdvisoryReply, hasChatProvider };
+export default { formatPropertyFacts, generateAdvisoryReply, hasChatProvider };

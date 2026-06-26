@@ -1,5 +1,6 @@
-const mongoose = require("mongoose");
-const crypto = require("crypto");
+import mongoose from 'mongoose';
+import crypto from 'crypto';
+
 const nguoiDungSchema = new mongoose.Schema(
   {
     ten: { type: String, required: true },
@@ -75,5 +76,4 @@ nguoiDungSchema.pre("save", function (next) {
   next();
 });
 
-module.exports =
-  mongoose.models.nguoiDung || mongoose.model("nguoiDung", nguoiDungSchema);
+export default mongoose.models.nguoiDung || mongoose.model("nguoiDung", nguoiDungSchema);

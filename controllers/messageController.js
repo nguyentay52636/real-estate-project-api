@@ -1,7 +1,7 @@
 // controllers/messageController.js
-const TinNhan = require('../models/TinNhan');
-const PhongChat = require('../models/PhongChat');
-const ThongBao = require('../models/ThongBao');
+import TinNhan from '../models/Message.js';
+import PhongChat from '../models/ChatRoom.js';
+import ThongBao from '../models/Notification.js';
 
 function getAuthUserId(req, res) {
   const userId = req.user?.id;
@@ -470,19 +470,5 @@ const recallMessageSocket = async (id, userId, io) => {
   return updated;
 };
 
-module.exports = {
-  getMessages,
-  createMessageHandler,
-  createCallMessage,
-  updateMessageHandler,
-  deleteMessageHandler,
-  recallMessage,
-  markMessageAsRead,
-  searchMessages,
-  pinMessage,
-  unpinMessage,
-  createMessage,
-  updateMessage,
-  deleteMessage,
-  recallMessageSocket,
-};
+export { getMessages, createMessageHandler, createCallMessage, updateMessageHandler, deleteMessageHandler, recallMessage, markMessageAsRead, searchMessages, pinMessage, unpinMessage, createMessage, updateMessage, deleteMessage, recallMessageSocket };
+export default { getMessages, createMessageHandler, createCallMessage, updateMessageHandler, deleteMessageHandler, recallMessage, markMessageAsRead, searchMessages, pinMessage, unpinMessage, createMessage, updateMessage, deleteMessage, recallMessageSocket };

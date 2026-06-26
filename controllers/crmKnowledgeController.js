@@ -1,4 +1,4 @@
-const crmKnowledgeService = require('../services/crmKnowledgeService');
+import crmKnowledgeService from '../services/crmKnowledgeService.js';
 
 const crmKnowledgeController = {
   create: async (req, res) => {
@@ -87,4 +87,4 @@ const crmKnowledgeController = {
   },
 };
 
-module.exports = crmKnowledgeController;
+export default crmKnowledgeController;

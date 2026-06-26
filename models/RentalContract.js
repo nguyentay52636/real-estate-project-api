@@ -57,5 +57,5 @@ const HopDongThueSchema = new mongoose.Schema({
     },
   }, { timestamps: true });
   
-  module.exports = mongoose.model("HopDongThue", HopDongThueSchema);
+  export default mongoose.model("HopDongThue", HopDongThueSchema);
   

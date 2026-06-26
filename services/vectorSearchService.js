@@ -1,5 +1,5 @@
-const logger = require('../utils/logger');
-const { fetchCatalogFromApi } = require('./crmKnowledgeCatalogClient');
+import logger from '../utils/logger.js';
+import { fetchCatalogFromApi } from './crmKnowledgeCatalogClient.js';
 
 const VECTOR_THRESHOLD = parseFloat(process.env.VECTOR_SIMILARITY_THRESHOLD || '0.6');
 const TEXT_THRESHOLD = parseFloat(process.env.VECTOR_TEXT_SEARCH_THRESHOLD || '0.3');
@@ -83,12 +83,5 @@ async function searchProperties(message, options = {}) {
   return { results, mode: 'text' };
 }
 
-module.exports = {
-  searchByText,
-  searchProperties,
-  cosineSimilarity,
-  getThresholdForMode,
-  VECTOR_THRESHOLD,
-  TEXT_THRESHOLD,
-  scoreDocByText,
-};
+export { searchByText, searchProperties, cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD, scoreDocByText };
+export default { searchByText, searchProperties, cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD, scoreDocByText };

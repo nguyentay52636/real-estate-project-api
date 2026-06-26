@@ -1,8 +1,6 @@
-const express = require('express');
-const router = express.Router();
-const middlewareController = require('../controllers/middlewareController');
-const {
-  sendAIMessage,
+import express from 'express';
+import middlewareController from '../controllers/middlewareController.js';
+import { sendAIMessage,
   requestHandoff,
   sendHumanMessage,
   getHandoffStatus,
@@ -10,8 +8,9 @@ const {
   getPendingHandoffs,
   dismissHandoff,
   dismissAllHandoffs,
-  searchApartment,
-} = require('../controllers/aiChatController');
+  searchApartment, } from '../controllers/aiChatController.js';
+
+const router = express.Router();
 
 // Level 1 – AI agent
 router.post('/message', sendAIMessage);
@@ -26,4 +25,4 @@ router.delete('/handoff/:handoffToken/dismiss', middlewareController.verifyToken
 router.post('/handoff/:handoffToken/accept', middlewareController.verifyToken, acceptHandoff);
 router.post('/human/send', sendHumanMessage);
 
-module.exports = router;
+export default router;

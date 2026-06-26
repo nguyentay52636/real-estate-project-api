@@ -1,6 +1,6 @@
-const passport = require('passport');
-const FacebookStrategy = require('passport-facebook').Strategy;
-const facebookService = require('../services/facebook.services');
+import passport from 'passport';
+import { Strategy as FacebookStrategy } from 'passport-facebook';
+import { facebookCallback } from '../services/facebook.services.js';
 
 // Kiểm tra Facebook credentials
 const hasFacebookCredentials = process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET;
@@ -15,7 +15,7 @@ if (!hasFacebookCredentials) {
     clientSecret: process.env.FACEBOOK_APP_SECRET,
     callbackURL: `${process.env.BASE_URL || 'http://localhost:8000'}/api/auth/facebook/callback`,
     profileFields: ['id', 'emails', 'name'],
-  }, facebookService.facebookCallback));
+  }, facebookCallback));
   
 }
 
@@ -23,4 +23,4 @@ if (!hasFacebookCredentials) {
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-module.exports = passport;
+export default passport;

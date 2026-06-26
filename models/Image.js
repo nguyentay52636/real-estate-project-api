@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const HinhAnhSchema = new mongoose.Schema({
   batDongSanId: { type: mongoose.Schema.Types.ObjectId, ref: 'BatDongSan' },
@@ -6,4 +6,4 @@ const HinhAnhSchema = new mongoose.Schema({
   laAnhChinh: { type: Boolean, default: false }
 });
 
-module.exports = mongoose.model('HinhAnh', HinhAnhSchema);
+export default mongoose.model('HinhAnh', HinhAnhSchema);

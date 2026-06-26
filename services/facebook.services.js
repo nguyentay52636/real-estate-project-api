@@ -1,9 +1,9 @@
-const User = require('../models/nguoidung');
-const VaiTro = require('../models/vaiTro');
-const KhachHang = require('../models/KhachHang');
-const { facebookUserValidation } = require('../middleware/authValidation');
+import User from '../models/User.js';
+import VaiTro from '../models/Role.js';
+import KhachHang from '../models/Customer.js';
+import { facebookUserValidation } from '../middleware/authValidation.js';
 
-exports.facebookCallback = async function (accessToken, refreshToken, profile, done) {
+export const facebookCallback = async function (accessToken, refreshToken, profile, done) {
     try {
         console.log('🔍 Facebook profile received:', JSON.stringify(profile, null, 2));
         console.log('🔍 Access Token received:', accessToken ? 'Yes' : 'No');

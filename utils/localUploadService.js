@@ -1,7 +1,10 @@
-const path = require('path');
-const fs = require('fs');
+import path from 'path';
+import fs from 'fs';
 
-const ROOT_DIR = path.join(__dirname, '..');
+import { getDirname } from '../utils/esm.js';
+const dirname = getDirname(import.meta.url);
+
+const ROOT_DIR = path.join(dirname, '..');
 const IMAGES_DIR = path.join(ROOT_DIR, 'images');
 
 function sanitizeFolder(folder = 'uploads') {
@@ -43,10 +46,5 @@ function deleteLocalFile(filePath) {
   return true;
 }
 
-module.exports = {
-  sanitizeFolder,
-  getLocalDir,
-  toPublicUrl,
-  toRelativePath,
-  deleteLocalFile,
-};
+export { sanitizeFolder, getLocalDir, toPublicUrl, toRelativePath, deleteLocalFile };
+export default { sanitizeFolder, getLocalDir, toPublicUrl, toRelativePath, deleteLocalFile };

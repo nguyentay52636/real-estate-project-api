@@ -1,8 +1,8 @@
-const CrmKnowledge = require('../models/CrmKnowledge');
-const logger = require('../utils/logger');
-const { embed, buildEmbeddingText } = require('./embeddingService');
-const { uploadFromBuffer } = require('../utils/cloudinaryService');
-const { clearCatalogCache } = require('./crmKnowledgeCatalogClient');
+import CrmKnowledge from '../models/CrmKnowledge.js';
+import logger from '../utils/logger.js';
+import { embed, buildEmbeddingText } from './embeddingService.js';
+import { uploadFromBuffer } from '../utils/cloudinaryService.js';
+import { clearCatalogCache } from './crmKnowledgeCatalogClient.js';
 
 async function safeEmbed(text) {
   try {
@@ -136,13 +136,5 @@ function formatForClient(doc) {
   return rest;
 }
 
-module.exports = {
-  createKnowledge,
-  updateKnowledge,
-  listKnowledge,
-  getKnowledgeById,
-  deleteKnowledge,
-  getAllActive,
-  addImages,
-  formatForClient,
-};
+export { createKnowledge, updateKnowledge, listKnowledge, getKnowledgeById, deleteKnowledge, getAllActive, addImages, formatForClient };
+export default { createKnowledge, updateKnowledge, listKnowledge, getKnowledgeById, deleteKnowledge, getAllActive, addImages, formatForClient };

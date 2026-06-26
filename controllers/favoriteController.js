@@ -1,4 +1,4 @@
-const Favorite = require("../models/YeuThich");
+import Favorite from '../models/Favorite.js';
 
 const favoriteController = {
   // Thêm vào yêu thích
@@ -66,4 +66,4 @@ const favoriteController = {
   },
 };
 
-module.exports = favoriteController;
+export default favoriteController;

@@ -1,5 +1,8 @@
-const mongoose = require('mongoose');
-require('dotenv').config(); // nếu dùng biến môi trường ở đây
+import dotenv from 'dotenv';
+dotenv.config();
+import mongoose from 'mongoose';
+
+ // nếu dùng biến môi trường ở đây
 
 const connectDB = async () => {
   try {
@@ -11,4 +14,4 @@ const connectDB = async () => {
   }
 };
 
-module.exports = connectDB;
+export default connectDB;

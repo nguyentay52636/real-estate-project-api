@@ -1,10 +1,10 @@
-const http = require('http');
-const socketIo = require('socket.io');
-const app = require('../app');
-const { createMessage, updateMessage, deleteMessage } = require('../controllers/messageController');
+import http from 'http';
+import { Server } from 'socket.io';
+import app from '../app.js';
+import { createMessage, updateMessage, deleteMessage } from '../controllers/messageController.js';
 
 const server = http.createServer(app);
-const io = socketIo(server, { cors: { origin: '*' } });
+const io = new Server(server, { cors: { origin: '*' } });
 
 io.on('connection', (socket) => {
     console.log('🟢 Socket Connected');

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const TinTucSchema = new mongoose.Schema({
   tieuDe: { type: String , required: true , maxlength: 200 },
@@ -12,4 +12,4 @@ const TinTucSchema = new mongoose.Schema({
   versionKey: false,
 });
 
-module.exports = mongoose.model('TinTuc', TinTucSchema);
+export default mongoose.model('TinTuc', TinTucSchema);

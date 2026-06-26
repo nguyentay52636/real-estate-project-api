@@ -1,10 +1,10 @@
-const NguoiDung = require('../../models/Nguoidung');
-const { getPendingTickets } = require('../../services/handoffService');
-const logger = require('../../utils/logger');
-const { registerRoomHandlers } = require('./roomHandlers');
-const { registerMessageHandlers } = require('./messageHandlers');
-const { registerMemberHandlers } = require('./memberHandlers');
-const { registerHandoffHandlers } = require('./handoffHandlers');
+import NguoiDung from '../../models/User.js';
+import logger from '../../utils/logger.js';
+import { getPendingTickets } from '../../services/handoffService.js';
+import { registerRoomHandlers } from './roomHandlers.js';
+import { registerMessageHandlers } from './messageHandlers.js';
+import { registerMemberHandlers } from './memberHandlers.js';
+import { registerHandoffHandlers } from './handoffHandlers.js';
 
 async function onConnection(socket, io, state) {
   logger.debug(`Socket connected: ${socket.user.id} (${socket.id})`);
@@ -53,4 +53,5 @@ async function onConnection(socket, io, state) {
   });
 }
 
-module.exports = { onConnection };
+export { onConnection };
+export default { onConnection };

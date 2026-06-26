@@ -1,6 +1,6 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { embedWithOpenRouter, hasOpenRouterKey } = require('./openRouterService');
-const logger = require('../utils/logger');
+import logger from '../utils/logger.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { embedWithOpenRouter, hasOpenRouterKey } from './openRouterService.js';
 
 const GEMINI_EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
 
@@ -83,10 +83,5 @@ function buildEmbeddingText(doc) {
   return parts.filter(Boolean).join('. ');
 }
 
-module.exports = {
-  embed,
-  buildEmbeddingText,
-  hasEmbeddingProvider,
-  shouldSkipEmbedApi,
-  isCreditError,
-};
+export { embed, buildEmbeddingText, hasEmbeddingProvider, shouldSkipEmbedApi, isCreditError };
+export default { embed, buildEmbeddingText, hasEmbeddingProvider, shouldSkipEmbedApi, isCreditError };

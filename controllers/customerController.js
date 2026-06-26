@@ -1,5 +1,5 @@
-const Customer = require("../models/KhachHang");
-const NguoiDung = require("../models/nguoidung");
+import Customer from '../models/Customer.js';
+import NguoiDung from '../models/User.js';
 
 // Get all customers
 const getCustomers = async (req, res) => {
@@ -199,10 +199,5 @@ const deleteCustomer = async (req, res) => {
   }
 };
 
-module.exports = {
-  getCustomers,
-  getCustomerById,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer
-}; 
+export { getCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer };
+export default { getCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer };

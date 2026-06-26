@@ -8,4 +8,5 @@ function getIO() {
   return ioInstance;
 }
 
-module.exports = { setIO, getIO };
+export { setIO, getIO };
+export default { setIO, getIO };

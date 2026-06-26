@@ -1,10 +1,10 @@
-const ChatTicket = require('../models/ChatTicket');
-const PhongChat = require('../models/PhongChat');
-const TinNhan = require('../models/TinNhan');
-const NguoiDung = require('../models/Nguoidung');
-const VaiTro = require('../models/VaiTro');
-const ThongBaoChat = require('../models/ThongBaoChat');
-const { getIO } = require('../socket/ioInstance');
+import ChatTicket from '../models/ChatTicket.js';
+import PhongChat from '../models/ChatRoom.js';
+import TinNhan from '../models/Message.js';
+import NguoiDung from '../models/User.js';
+import VaiTro from '../models/Role.js';
+import ThongBaoChat from '../models/ChatNotification.js';
+import { getIO } from '../socket/ioInstance.js';
 
 async function getNhanVienRoleId() {
   const role = await VaiTro.findOne({ ten: 'nhan_vien' });
@@ -422,14 +422,5 @@ async function clearHandoffNotifications(handoffToken, acceptedByAgentId) {
   }
 }
 
-module.exports = {
-  createHandoffTicket,
-  getHandoffStatus,
-  getPendingTickets,
-  acceptHandoffTicket,
-  getActiveNhanVienUsers,
-  isNhanVien,
-  formatTicketForClient,
-  dismissHandoffTicket,
-  dismissAllHandoffNotifications,
-};
+export { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveNhanVienUsers, isNhanVien, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications };
+export default { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveNhanVienUsers, isNhanVien, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications };

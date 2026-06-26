@@ -1,5 +1,5 @@
-// models/PhongChat.js
-const mongoose = require('mongoose');
+// models/ChatRoom.js.js
+import mongoose from 'mongoose';
 
 const PhongChatSchema = new mongoose.Schema({
   tenPhong: {
@@ -64,4 +64,4 @@ PhongChatSchema.pre('validate', function (next) {
   next();
 });
 
-module.exports = mongoose.model('PhongChat', PhongChatSchema);
+export default mongoose.model('PhongChat', PhongChatSchema);

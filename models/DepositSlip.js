@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const PhieuDatCocSchema = new mongoose.Schema({
   nguoiDungId: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung', required: true },
@@ -12,4 +12,4 @@ const PhieuDatCocSchema = new mongoose.Schema({
   versionKey: false
 });
 
-module.exports = mongoose.model('PhieuDatCoc', PhieuDatCocSchema);
+export default mongoose.model('PhieuDatCoc', PhieuDatCocSchema);

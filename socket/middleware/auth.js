@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const logger = require('../../utils/logger');
+import jwt from 'jsonwebtoken';
+import logger from '../../utils/logger.js';
 
 function authMiddleware(socket, next) {
   try {
@@ -22,4 +22,5 @@ function authMiddleware(socket, next) {
   }
 }
 
-module.exports = { authMiddleware };
+export { authMiddleware };
+export default { authMiddleware };

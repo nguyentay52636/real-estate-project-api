@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const LienHeSchema = new mongoose.Schema({
   nguoiDungId: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung' },
@@ -9,4 +9,4 @@ const LienHeSchema = new mongoose.Schema({
   ngayGui: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('LienHe', LienHeSchema);
+export default mongoose.model('LienHe', LienHeSchema);

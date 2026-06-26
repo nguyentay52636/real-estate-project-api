@@ -1,8 +1,9 @@
-const express = require('express');
+import express from 'express';
+import crmKnowledgeController from '../controllers/crmKnowledgeController.js';
+import middlewareController from '../controllers/middlewareController.js';
+import uploadMemory from '../middleware/uploadMemory.js';
+
 const router = express.Router();
-const crmKnowledgeController = require('../controllers/crmKnowledgeController');
-const middlewareController = require('../controllers/middlewareController');
-const uploadMemory = require('../middleware/uploadMemory');
 
 const handleUploadError = (err, req, res, next) => {
   if (err) {
@@ -24,4 +25,4 @@ router.post(
   crmKnowledgeController.uploadImages
 );
 
-module.exports = router;
+export default router;

@@ -1,5 +1,13 @@
+import express from 'express';
+import { getNotifications,
+  getUnreadNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  deleteAllNotifications, } from '../controllers/notificationChatController.js';
+import verifyToken from '../controllers/middlewareController.js';
 
-// const express = require('express');
+// 
 // const router = express.Router();
 // const {
 //   getNotifications,
@@ -9,7 +17,7 @@
 //   deleteNotification,
 //   deleteAllNotifications,
 // } = require('../controllers/notificationController');
-// const verifyToken = require('../controllers/middlewareController'); 
+//  
 
 // router.get('/', verifyToken, getNotifications);
 // router.get('/unread', verifyToken, getUnreadNotifications);
@@ -18,18 +26,9 @@
 // router.delete('/:id', verifyToken, deleteNotification);
 // router.delete('/', verifyToken, deleteAllNotifications);
 
-// module.exports = router;
+// export default router;
 
-const express = require('express');
 const router = express.Router();
-const {
-  getNotifications,
-  getUnreadNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  deleteNotification,
-  deleteAllNotifications,
-} = require('../controllers/notificationChatController');
 
 router.get('/', getNotifications);
 router.get('/unread', getUnreadNotifications);
@@ -38,4 +37,4 @@ router.put('/read-all', markAllNotificationsAsRead);
 router.delete('/:id', deleteNotification);
 router.delete('/', deleteAllNotifications);
 
-module.exports = router;
+export default router;

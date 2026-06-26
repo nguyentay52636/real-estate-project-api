@@ -1,4 +1,5 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
+
 const KhachHangSchema = new mongoose.Schema({
     nguoiDungId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -49,5 +50,5 @@ const KhachHangSchema = new mongoose.Schema({
     },
   }, { timestamps: true });
   
-  module.exports = mongoose.models.KhachHang || mongoose.model("KhachHang", KhachHangSchema);
+  export default mongoose.models.KhachHang || mongoose.model("KhachHang", KhachHangSchema);
   

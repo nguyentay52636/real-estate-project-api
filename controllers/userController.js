@@ -1,13 +1,16 @@
-const User = require("../models/Nguoidung");
-const bcrypt = require("bcrypt");
-const { registerValidation } = require("../middleware/authValidation");
-const Customer = require("../models/KhachHang");
-const VaiTro = require("../models/VaiTro");
-const ChuNha = require("../models/ChuNha");
-const NhanVien = require("../models/NhanVien");
-const fs = require("fs");
-const path = require("path");
-const { uploadFromBuffer, destroyByUrl } = require("../utils/cloudinaryService");
+import User from '../models/User.js';
+import bcrypt from 'bcrypt';
+import Customer from '../models/Customer.js';
+import VaiTro from '../models/Role.js';
+import ChuNha from '../models/Owner.js';
+import NhanVien from '../models/Employee.js';
+import fs from 'fs';
+import path from 'path';
+import { registerValidation } from '../middleware/authValidation.js';
+import { uploadFromBuffer, destroyByUrl } from '../utils/cloudinaryService.js';
+
+import { getDirname } from '../utils/esm.js';
+const dirname = getDirname(import.meta.url);
 
 const userController = {
   getAllUser: async (req, res) => {
@@ -76,7 +79,6 @@ const userController = {
         const hashedPassword = await bcrypt.hash(matKhau, 10);
         userUpdate.matKhau = hashedPassword;
       }
-
 
       if (vaiTro) {
         let vaiTroDoc = await VaiTro.findOne({ ten: vaiTro });
@@ -197,7 +199,7 @@ const userController = {
           : user.anhDaiDien;
 
         if (oldAvatarPath.startsWith("images/")) {
-          const fullPath = path.join(__dirname, "..", oldAvatarPath);
+          const fullPath = path.join(dirname, "..", oldAvatarPath);
           if (fs.existsSync(fullPath)) {
             try {
               fs.unlinkSync(fullPath);
@@ -255,7 +257,7 @@ const userController = {
           : user.anhDaiDien;
 
         if (oldAvatarPath.startsWith("images/")) {
-          const fullPath = path.join(__dirname, "..", oldAvatarPath);
+          const fullPath = path.join(dirname, "..", oldAvatarPath);
           if (fs.existsSync(fullPath)) {
             try {
               fs.unlinkSync(fullPath);
@@ -288,4 +290,4 @@ const userController = {
   },
 };
 
-module.exports = userController;
+export default userController;

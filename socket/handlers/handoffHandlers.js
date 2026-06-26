@@ -1,9 +1,7 @@
-const {
-  acceptHandoffTicket,
+import { acceptHandoffTicket,
   getPendingTickets,
-  isNhanVien,
-} = require('../../services/handoffService');
-const { emitError, wrapHandler } = require('../helpers/socketHelpers');
+  isNhanVien, } from '../../services/handoffService.js';
+import { emitError, wrapHandler } from '../helpers/socketHelpers.js';
 
 function registerHandoffHandlers(socket) {
   socket.on('handoff:join', ({ handoffToken }) => {
@@ -49,4 +47,5 @@ function registerHandoffHandlers(socket) {
   );
 }
 
-module.exports = { registerHandoffHandlers };
+export { registerHandoffHandlers };
+export default { registerHandoffHandlers };

@@ -1,6 +1,6 @@
 // controllers/notificationController.js
-const ThongBao = require('../models/ThongBaoChat');
-const PhongChat = require('../models/PhongChat');
+import ThongBao from '../models/ChatNotification.js';
+import PhongChat from '../models/ChatRoom.js';
 
 // Kiểm tra quyền truy cập phòng chat (giữ nguyên từ roomController.js để tránh xung đột)
 const checkRoomAccess = async (roomId, userId) => {
@@ -208,13 +208,5 @@ const setupNotificationSocket = (io) => {
   });
 };
 
-module.exports = {
-  getNotifications,
-  getUnreadNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  deleteNotification,
-  deleteAllNotifications,
-  createNotification,
-  setupNotificationSocket,
-};
+export { getNotifications, getUnreadNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, deleteAllNotifications, createNotification, setupNotificationSocket };
+export default { getNotifications, getUnreadNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, deleteAllNotifications, createNotification, setupNotificationSocket };

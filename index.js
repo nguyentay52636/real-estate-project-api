@@ -1,27 +1,29 @@
-const dotenv = require("dotenv");
+import dotenv from 'dotenv';
 dotenv.config();
 
-const express = require("express");
-const http = require("http");
-const cors = require("cors");
-const mongoose = require("mongoose");
-const cookieParser = require("cookie-parser");
-const session = require("express-session");
-const passport = require("./config/passport");
-const connectDB = require("./config/db");
-const { setupSocket } = require("./socket/SocketServer");
-const { setupAiWebSocket } = require("./socket/aiWebSocket");
-const path = require("path");
+import express from 'express';
+import http from 'http';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import path from 'path';
+import passport from './config/passport.js';
+import connectDB from './config/db.js';
+import rootRouter from './routes/root.js';
+import cloudinary from './config/cloudinary.js';
+import { setupSocket } from './socket/SocketServer.js';
+import { setupAiWebSocket } from './socket/aiWebSocket.js';
+import { swaggerSpec, swaggerUi, swaggerUiOptions } from './swagger/swagger.js';
+import { getDirname } from './utils/esm.js';
+
+const dirname = getDirname(import.meta.url);
 const PORT = process.env.PORT || 8000;
-const rootRouter = require("./routes/root");
-const { swaggerSpec, swaggerUi, swaggerUiOptions } = require("./swagger/swagger");
-const cloudinary = require("./config/cloudinary");
 
 const app = express();
 const server = http.createServer(app);
 
 connectDB();
-
 
 setupSocket(server);
 setupAiWebSocket(server);
@@ -33,7 +35,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
-app.use('/images', express.static(path.join(__dirname, 'images')));
+app.use('/images', express.static(path.join(dirname, 'images')));
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-here',

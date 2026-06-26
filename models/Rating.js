@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const DanhGiaSchema = new mongoose.Schema({
   nguoiDungId: { type: mongoose.Schema.Types.ObjectId, ref: 'nguoiDung' },
@@ -7,4 +7,4 @@ const DanhGiaSchema = new mongoose.Schema({
   binhLuan: String
 }, { timestamps: true });
 
-module.exports = mongoose.model('DanhGia', DanhGiaSchema);
+export default mongoose.model('DanhGia', DanhGiaSchema);

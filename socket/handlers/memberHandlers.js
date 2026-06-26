@@ -1,6 +1,5 @@
-const PhongChat = require('../../models/PhongChat');
-const {
-  emitError,
+import PhongChat from '../../models/ChatRoom.js';
+import { emitError,
   isValidId,
   isAdmin,
   getOtherActiveMembers,
@@ -8,8 +7,7 @@ const {
   notifyMembers,
   createSystemMessage,
   populateRoom,
-  wrapHandler,
-} = require('../helpers/socketHelpers');
+  wrapHandler, } from '../helpers/socketHelpers.js';
 
 function registerMemberHandlers(socket, io, state) {
   socket.on(
@@ -164,4 +162,5 @@ function registerMemberHandlers(socket, io, state) {
   );
 }
 
-module.exports = { registerMemberHandlers };
+export { registerMemberHandlers };
+export default { registerMemberHandlers };

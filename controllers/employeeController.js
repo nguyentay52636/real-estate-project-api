@@ -1,4 +1,4 @@
-const Employee = require("../models/NhanVien");
+import Employee from '../models/Employee.js';
 
 const employeeController = {
   getAllEmployee: async (req, res) => {
@@ -133,4 +133,4 @@ const employeeController = {
   },
 };
 
-module.exports = employeeController;
+export default employeeController;

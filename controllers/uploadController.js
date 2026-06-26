@@ -1,9 +1,7 @@
-const { uploadFromBuffer } = require('../utils/cloudinaryService');
-const {
-  sanitizeFolder,
+import { uploadFromBuffer } from '../utils/cloudinaryService.js';
+import { sanitizeFolder,
   toPublicUrl,
-  toRelativePath,
-} = require('../utils/localUploadService');
+  toRelativePath, } from '../utils/localUploadService.js';
 
 const uploadController = {
   uploadLocal: async (req, res) => {
@@ -58,4 +56,4 @@ const uploadController = {
   },
 };
 
-module.exports = uploadController;
+export default uploadController;

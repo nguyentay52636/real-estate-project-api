@@ -1,7 +1,8 @@
 // routes/roomRoutes.js
-const express = require('express');
+import express from 'express';
+import roomController from '../controllers/roomChatController.js';
+
 const router = express.Router();
-const roomController = require('../controllers/roomChatController');
 
 // Search rooms - không cần auth
 router.get('/search', roomController.searchRooms);
@@ -42,4 +43,4 @@ router.put('/:roomId/transfer-admin', roomController.transferAdmin);
 // Get all rooms - không cần auth
 router.get('/', roomController.getAllRom);
 
-module.exports = router;
+export default router;

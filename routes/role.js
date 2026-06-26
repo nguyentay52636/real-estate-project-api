@@ -1,8 +1,9 @@
-const express = require("express");
+import express from 'express';
+import roleController from '../controllers/RoleController.js';
+
 const router = express.Router();
-const roleController = require("../controllers/RoleController");
 
 // GET /api/viewings
 router.get("/", roleController.getAllRoles);
 
-module.exports = router;
+export default router;

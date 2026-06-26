@@ -1,4 +1,5 @@
-const logger = require('../utils/logger');
+import logger from '../utils/logger.js';
+import { getAllActive } from './crmKnowledgeService.js';
 
 const CACHE_TTL_MS = parseInt(process.env.CRM_CATALOG_CACHE_MS || '30000', 10);
 
@@ -46,15 +47,11 @@ async function fetchCatalogFromApi({ bypassCache = false } = {}) {
   } catch (error) {
     logger.warn(`[CatalogClient] API lỗi (${error.message}), fallback getAllActive`);
 
-    const { getAllActive } = require('./crmKnowledgeService');
     const items = await getAllActive();
     cache = { items, fetchedAt: now };
     return items;
   }
 }
 
-module.exports = {
-  fetchCatalogFromApi,
-  getCatalogApiUrl,
-  clearCatalogCache,
-};
+export { fetchCatalogFromApi, getCatalogApiUrl, clearCatalogCache };
+export default { fetchCatalogFromApi, getCatalogApiUrl, clearCatalogCache };

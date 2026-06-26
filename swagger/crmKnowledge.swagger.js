@@ -435,4 +435,4 @@
  *         description: Không tìm thấy bài
  */
 
-module.exports = {};
+export default {};

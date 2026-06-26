@@ -1,6 +1,7 @@
-const passport = require('../config/passport');
-const { generateAccessToken, generateRefreshToken } = require('../utils/jwt');
-const RefreshToken = require('../models/RefreshToken');
+import passport from '../config/passport.js';
+import RefreshToken from '../models/RefreshToken.js';
+import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import https from 'https';
 
 // Kiểm tra Facebook credentials có sẵn không
 const hasFacebookCredentials = process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET;
@@ -180,7 +181,7 @@ const authController = {
 
         try {
             // Test basic Facebook Graph API call
-            const https = require('https');
+
             const appAccessToken = `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}`;
             
             const url = `https://graph.facebook.com/${process.env.FACEBOOK_APP_ID}?access_token=${appAccessToken}`;
@@ -206,4 +207,4 @@ const authController = {
     }
 };
 
-module.exports = authController;
+export default authController;

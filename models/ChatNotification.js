@@ -1,5 +1,5 @@
-// models/ThongBao.js
-const mongoose = require('mongoose');
+// models/Notification.js.js
+import mongoose from 'mongoose';
 
 const ThongBaoSchema = new mongoose.Schema({
   nguoiNhan: { type: mongoose.Schema.Types.ObjectId, ref: 'nguoiDung', required: true },
@@ -17,4 +17,4 @@ const ThongBaoSchema = new mongoose.Schema({
 
 ThongBaoSchema.index({ nguoiNhan: 1, createdAt: -1 });
 
-module.exports = mongoose.model('ThongBaoChat', ThongBaoSchema);
+export default mongoose.model('ThongBaoChat', ThongBaoSchema);

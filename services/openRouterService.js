@@ -1,4 +1,4 @@
-const logger = require('../utils/logger');
+import logger from '../utils/logger.js';
 
 /** Danh sách model :free mặc định — thử lần lượt khi model trước lỗi */
 const DEFAULT_FREE_CHAT_MODELS = [
@@ -134,12 +134,5 @@ function hasOpenRouterKey() {
   return Boolean(getOpenRouterKey());
 }
 
-module.exports = {
-  embedWithOpenRouter,
-  chatWithOpenRouter,
-  hasOpenRouterKey,
-  getOpenRouterKey,
-  getChatModelChain,
-  getEmbeddingModel,
-  DEFAULT_FREE_CHAT_MODELS,
-};
+export { embedWithOpenRouter, chatWithOpenRouter, hasOpenRouterKey, getOpenRouterKey, getChatModelChain, getEmbeddingModel, DEFAULT_FREE_CHAT_MODELS };
+export default { embedWithOpenRouter, chatWithOpenRouter, hasOpenRouterKey, getOpenRouterKey, getChatModelChain, getEmbeddingModel, DEFAULT_FREE_CHAT_MODELS };

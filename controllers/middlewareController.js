@@ -1,6 +1,6 @@
-const jwt = require("jsonwebtoken");
-const NguoiDung = require("../models/Nguoidung");
-const VaiTro = require("../models/VaiTro");
+import jwt from 'jsonwebtoken';
+import NguoiDung from '../models/User.js';
+import VaiTro from '../models/Role.js';
 
 async function isAdminUser(userId) {
   const adminRole = await VaiTro.findOne({ ten: "admin" });
@@ -53,4 +53,4 @@ const middlewareController = {
   },
 };
 
-module.exports = middlewareController;
+export default middlewareController;

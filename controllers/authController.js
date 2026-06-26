@@ -1,20 +1,16 @@
-const User = require("../models/nguoidung");
-const RefreshToken = require("../models/RefreshToken");
-const bcrypt = require("bcrypt");
-const Customer = require("../models/KhachHang");
-const VaiTro = require("../models/VaiTro");
-const ChuNha = require("../models/chuNha");
-const sendMail = require("../utils/sendMail");
-const crypto = require("crypto");
-const {
-  registerValidation,
-  loginValidation,
-} = require("../middleware/authValidation");
-const {
-  generateAccessToken,
+import User from '../models/User.js';
+import RefreshToken from '../models/RefreshToken.js';
+import bcrypt from 'bcrypt';
+import Customer from '../models/Customer.js';
+import VaiTro from '../models/Role.js';
+import ChuNha from '../models/Owner.js';
+import sendMail from '../utils/sendMail.js';
+import crypto from 'crypto';
+import { registerValidation,
+  loginValidation, } from '../middleware/authValidation.js';
+import { generateAccessToken,
   generateRefreshToken,
-  verifyRefreshToken,
-} = require("../utils/jwt");
+  verifyRefreshToken, } from '../utils/jwt.js';
 
 const authController = {
   register: async (req, res) => {
@@ -193,4 +189,4 @@ const authController = {
   },
 };
 
-module.exports = authController;
+export default authController;

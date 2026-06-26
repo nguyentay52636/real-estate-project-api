@@ -1,6 +1,6 @@
-const multer = require('multer');
-const path = require('path');
-const { getLocalDir } = require('../utils/localUploadService');
+import multer from 'multer';
+import path from 'path';
+import { getLocalDir } from '../utils/localUploadService.js';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -32,4 +32,4 @@ const uploadLocal = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-module.exports = uploadLocal;
+export default uploadLocal;

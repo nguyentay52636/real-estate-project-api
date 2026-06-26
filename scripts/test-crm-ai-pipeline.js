@@ -1,13 +1,14 @@
+import dotenv from 'dotenv';
+dotenv.config();
+import assert from 'assert';
+import { buildEmbeddingText } from '../services/embeddingService.js';
+import { cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD } from '../services/vectorSearchService.js';
+import { shouldHandoffByKeyword } from '../services/aiAdvisoryPipeline.js';
+
 /**
  * Smoke tests for CRM AI pipeline (no live Gemini/DB required for most checks).
  * Run: node scripts/test-crm-ai-pipeline.js
  */
-require('dotenv').config();
-
-const assert = require('assert');
-const { buildEmbeddingText } = require('../services/embeddingService');
-const { cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD } = require('../services/vectorSearchService');
-const { shouldHandoffByKeyword } = require('../services/aiAdvisoryPipeline');
 
 function testBuildEmbeddingText() {
   const text = buildEmbeddingText({
@@ -47,12 +48,12 @@ function testThreshold() {
   console.log(`✓ thresholds vector=${VECTOR_THRESHOLD}, text=${TEXT_THRESHOLD}`);
 }
 
-function testModulesLoad() {
-  require('../models/CrmKnowledge');
-  require('../services/crmKnowledgeService');
-  require('../services/geminiChatService');
-  require('../controllers/crmKnowledgeController');
-  require('../routes/crmKnowledge');
+async function testModulesLoad() {
+  await import('../models/CrmKnowledge.js');
+  await import('../services/crmKnowledgeService.js');
+  await import('../services/geminiChatService.js');
+  await import('../controllers/crmKnowledgeController.js');
+  await import('../routes/crmKnowledge.js');
   console.log('✓ modules load');
 }
 
@@ -61,7 +62,7 @@ try {
   testCosineSimilarity();
   testHandoffKeywords();
   testThreshold();
-  testModulesLoad();
+  await testModulesLoad();
   console.log('\nAll CRM AI pipeline smoke tests passed.');
 } catch (error) {
   console.error('\nTest failed:', error.message);

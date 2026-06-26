@@ -1,4 +1,5 @@
-const mongoose = require("mongoose");
+import mongoose from 'mongoose';
+
 const ChuNhaSchema = new mongoose.Schema(
   {
     nguoiDungId: {
@@ -36,4 +37,4 @@ const ChuNhaSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.models.ChuNha || mongoose.model("ChuNha", ChuNhaSchema);
+export default mongoose.models.ChuNha || mongoose.model("ChuNha", ChuNhaSchema);

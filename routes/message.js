@@ -1,9 +1,8 @@
 // routes/messageRoutes.js
-const express = require('express');
-const router = express.Router();
-const middlewareController = require('../controllers/middlewareController');
-const {
-  getMessages,
+import express from 'express';
+import middlewareController from '../controllers/middlewareController.js';
+import upload from '../middleware/upload.js';
+import { getMessages,
   createMessageHandler,
   createCallMessage,
   updateMessageHandler,
@@ -12,9 +11,9 @@ const {
   markMessageAsRead,
   searchMessages,
   pinMessage,
-  unpinMessage,
-} = require('../controllers/messageController');
-const upload = require('../middleware/upload');
+  unpinMessage, } from '../controllers/messageController.js';
+
+const router = express.Router();
 
 router.use(middlewareController.verifyToken);
 
@@ -29,4 +28,4 @@ router.delete('/:id', deleteMessageHandler);
 router.put('/:id/recall', recallMessage);
 router.put('/:id/read', markMessageAsRead);
 
-module.exports = router;
+export default router;

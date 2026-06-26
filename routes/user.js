@@ -1,9 +1,10 @@
-const express = require("express");
+import express from 'express';
+import userController from '../controllers/userController.js';
+import middlewareController from '../controllers/middlewareController.js';
+import uploadAvatar from '../middleware/uploadAvatar.js';
+import uploadMemory from '../middleware/uploadMemory.js';
+
 const router = express.Router();
-const userController = require("../controllers/userController");
-const middlewareController = require("../controllers/middlewareController");
-const uploadAvatar = require("../middleware/uploadAvatar");
-const uploadMemory = require("../middleware/uploadMemory");
 
 // GET /api/user - Get all users
 router.get("/", userController.getAllUser);
@@ -41,4 +42,4 @@ router.patch(
   userController.updateAvatarCloudinary
 );
 
-module.exports = router;
+export default router;

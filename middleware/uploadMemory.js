@@ -1,4 +1,4 @@
-const multer = require('multer');
+import multer from 'multer';
 
 const storage = multer.memoryStorage();
 
@@ -18,4 +18,4 @@ const uploadMemory = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // Giới hạn kích thước tệp 5MB
 });
 
-module.exports = uploadMemory;
+export default uploadMemory;

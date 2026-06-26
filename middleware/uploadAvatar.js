@@ -1,6 +1,6 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const uploadDir = 'images';
 if (!fs.existsSync(uploadDir)) {
@@ -32,4 +32,4 @@ const uploadAvatar = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-module.exports = uploadAvatar;
+export default uploadAvatar;

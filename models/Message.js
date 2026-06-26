@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const TinNhanSchema = new mongoose.Schema({
   roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'PhongChat', required: true },
@@ -26,4 +26,4 @@ const TinNhanSchema = new mongoose.Schema({
 
 TinNhanSchema.index({ roomId: 1, createdAt: 1 });
 
-module.exports = mongoose.model('TinNhan', TinNhanSchema);
+export default mongoose.model('TinNhan', TinNhanSchema);

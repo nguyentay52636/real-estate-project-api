@@ -1,8 +1,8 @@
 // routes/property.js
-const express = require("express");
-const router = express.Router();
-const propertyController = require("../controllers/propertyController");
+import express from 'express';
+import propertyController from '../controllers/propertyController.js';
 
+const router = express.Router();
 
 router.get("/", propertyController.getAllProperty);
 
@@ -25,4 +25,4 @@ router.patch("/:id/status", propertyController.updatePropertyStatus);
 // DELETE /api/property/:id        — Xóa bất động sản
 router.delete("/:id", propertyController.deleteProperty);
 
-module.exports = router;
+export default router;

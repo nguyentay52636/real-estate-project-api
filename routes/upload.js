@@ -1,9 +1,10 @@
-const express = require('express');
+import express from 'express';
+import uploadController from '../controllers/uploadController.js';
+import middlewareController from '../controllers/middlewareController.js';
+import uploadLocal from '../middleware/uploadLocal.js';
+import uploadMemory from '../middleware/uploadMemory.js';
+
 const router = express.Router();
-const uploadController = require('../controllers/uploadController');
-const middlewareController = require('../controllers/middlewareController');
-const uploadLocal = require('../middleware/uploadLocal');
-const uploadMemory = require('../middleware/uploadMemory');
 
 const handleUploadError = (err, req, res, next) => {
   if (err) {
@@ -103,4 +104,4 @@ router.post(
   uploadController.uploadCloudinary
 );
 
-module.exports = router;
+export default router;
