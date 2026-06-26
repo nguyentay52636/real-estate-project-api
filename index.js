@@ -14,7 +14,7 @@ const { setupAiWebSocket } = require("./socket/aiWebSocket");
 const path = require("path");
 const PORT = process.env.PORT || 8000;
 const rootRouter = require("./routes/root");
-const { swaggerSpec, swaggerUi } = require("./swagger/swagger");
+const { swaggerSpec, swaggerUi, swaggerUiOptions } = require("./swagger/swagger");
 const cloudinary = require("./config/cloudinary");
 
 const app = express();
@@ -49,7 +49,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use("/api", rootRouter);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

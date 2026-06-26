@@ -16,6 +16,7 @@ const crmKnowledgeSchema = new mongoose.Schema(
     },
     anhUrls: { type: [String], default: [] },
     anhDaiDien: { type: String, default: '' },
+    url: { type: String, default: '' },
     embedding: { type: [Number], default: [] },
     trangThai: {
       type: String,

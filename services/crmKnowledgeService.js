@@ -48,6 +48,7 @@ async function updateKnowledge(id, data) {
     loaiBds: data.loaiBds ?? existing.loaiBds,
     anhUrls: data.anhUrls ?? existing.anhUrls,
     anhDaiDien: data.anhDaiDien ?? existing.anhDaiDien,
+    url: data.url ?? existing.url,
     trangThai: data.trangThai ?? existing.trangThai,
   };
 

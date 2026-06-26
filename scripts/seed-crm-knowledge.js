@@ -19,6 +19,7 @@ const SAMPLES = [
     dienTich: 65,
     loaiBds: 'can_ho',
     anhUrls: [],
+    url: 'http://localhost:5173/products/can-ho-vinhomes-can-gio',
     trangThai: 'active',
   },
   {
@@ -31,6 +32,7 @@ const SAMPLES = [
     dienTich: 35,
     loaiBds: 'studio',
     anhUrls: [],
+    url: 'http://localhost:5173/products/studio-quan-1-trung-tam',
     trangThai: 'active',
   },
 ];
@@ -44,7 +46,8 @@ async function main() {
   for (const doc of SAMPLES) {
     const found = await CrmKnowledge.findOne({ tieuDe: doc.tieuDe });
     if (found) {
-      console.log(`  Bỏ qua (đã có): ${doc.tieuDe}`);
+      await CrmKnowledge.findByIdAndUpdate(found._id, doc);
+      console.log(`  Cập nhật: ${doc.tieuDe}`);
       continue;
     }
     await CrmKnowledge.create(doc);

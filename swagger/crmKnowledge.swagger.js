@@ -65,6 +65,9 @@
  *         anhDaiDien:
  *           type: string
  *           example: "https://res.cloudinary.com/.../image.jpg"
+ *         url:
+ *           type: string
+ *           example: "http://localhost:5173/products/can-ho-vinhomes-can-gio"
  *         trangThai:
  *           type: string
  *           enum: [active, inactive]
@@ -125,6 +128,9 @@
  *             type: string
  *         anhDaiDien:
  *           type: string
+ *         url:
+ *           type: string
+ *           example: "http://localhost:5173/products/can-ho-vinhomes-can-gio"
  *         trangThai:
  *           type: string
  *           enum: [active, inactive]

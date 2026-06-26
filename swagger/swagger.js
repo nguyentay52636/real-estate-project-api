@@ -2,6 +2,7 @@
 const swaggerJSDoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const path = require('path');
+const fs = require('fs');
 
 const options = {
   definition: {
@@ -23,4 +24,17 @@ const options = {
 
 const swaggerSpec = swaggerJSDoc(options);
 
-module.exports = { swaggerSpec, swaggerUi };
+// Load custom styles and scripts for search and dark mode toggle
+const customCss = fs.readFileSync(path.join(__dirname, 'swagger-custom.css'), 'utf8');
+const customJs = fs.readFileSync(path.join(__dirname, 'swagger-custom.js'), 'utf8');
+
+const swaggerUiOptions = {
+  swaggerOptions: {
+    filter: true, // Enable API Search/Filter bar
+  },
+  customCss: customCss,
+  customJsStr: customJs,
+};
+
+module.exports = { swaggerSpec, swaggerUi, swaggerUiOptions };
+

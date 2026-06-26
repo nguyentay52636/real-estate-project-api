@@ -60,6 +60,7 @@ function buildSuccessResult({ sessionId, answer, property, searchScore }) {
     loaiBds: property.loaiBds,
     anhUrls: property.anhUrls,
     anhDaiDien: property.anhDaiDien,
+    url: property.url,
   };
 
   return {

@@ -21,6 +21,7 @@ function formatPropertyFacts(property) {
     `Phòng ngủ: ${property.phongNgu ?? 'N/A'}`,
     property.dienTich != null ? `Diện tích: ${property.dienTich}m²` : null,
     property.loaiBds ? `Loại BĐS: ${property.loaiBds}` : null,
+    property.url ? `URL bài viết: ${property.url}` : null,
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -38,6 +39,7 @@ QUY TẮC NGHIÊM NGẶT:
 - KHÔNG bịa giá, địa chỉ, số phòng hoặc tiện ích không có trong dữ liệu.
 - Trả lời bằng tiếng Việt, tự nhiên, ngắn gọn (3-6 câu).
 - Nếu khách hỏi xem ảnh, nói rằng ảnh sẽ hiển thị bên dưới tin nhắn.
+- Nếu trong DỮ LIỆU BĐS THỰC TẾ có URL bài viết, hãy cung cấp link này cho khách hàng một cách tự nhiên để họ xem chi tiết.
 - KHÔNG trả JSON. Chỉ trả plain text.
 
 ${historyText ? `LỊCH SỬ HỘI THOẠI:\n${historyText}\n` : ''}
