@@ -1,9 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import assert from 'assert';
-import { buildEmbeddingText } from '../services/embeddingService.js';
-import { cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD } from '../services/vectorSearchService.js';
-import { shouldHandoffByKeyword } from '../services/aiAdvisoryPipeline.js';
+import { buildEmbeddingText } from '#modules/ai/services/embeddingService.js';
+import { cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD } from '#modules/ai/services/vectorSearchService.js';
+import { shouldHandoffByKeyword } from '#modules/ai/services/aiAdvisoryPipeline.js';
 
 /**
  * Smoke tests for CRM AI pipeline (no live Gemini/DB required for most checks).

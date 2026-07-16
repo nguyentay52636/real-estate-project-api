@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import mongoose from 'mongoose';
-import CrmKnowledge from '../models/CrmKnowledge.js';
+import CrmKnowledge from '#models/CrmKnowledge.js';
 
 /**
  * Seed mẫu CrmKnowledge vào MongoDB.

@@ -4,6 +4,14 @@
   "description": "",
   "type": "module",
   "main": "index.js",
+  "imports": {
+    "#config/*": "./src/config/*",
+    "#shared/*": "./src/shared/*",
+    "#models/*": "./src/infrastructure/database/models/*",
+    "#infra/*": "./src/infrastructure/*",
+    "#modules/*": "./src/modules/*",
+    "#docs/*": "./src/docs/*"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
