@@ -1,13 +1,10 @@
-import VaiTro from '#models/Role.js';
+import roleService from '#modules/users/services/roleService.js';
+import { asyncHandler } from '#shared/http/asyncHandler.js';
 
-const getAllRoles = async (req, res) => {
-    try {
-        const roles = await VaiTro.find();
-        res.status(200).json(roles);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-}
+const getAllRoles = asyncHandler(async (req, res) => {
+  const roles = await roleService.getAllRoles();
+  return res.status(200).json(roles);
+});
 
 export { getAllRoles };
 export default { getAllRoles };

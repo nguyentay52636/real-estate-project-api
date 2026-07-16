@@ -1,70 +1,16 @@
-import dotenv from 'dotenv';
-dotenv.config();
-import assert from 'assert';
-import { buildEmbeddingText } from '#modules/ai/services/embeddingService.js';
-import { cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD } from '#modules/ai/services/vectorSearchService.js';
-import { shouldHandoffByKeyword } from '#modules/ai/services/aiAdvisoryPipeline.js';
-
 /**
- * Smoke tests for CRM AI pipeline (no live Gemini/DB required for most checks).
- * Run: node scripts/test-crm-ai-pipeline.js
+ * Smoke wrapper — giữ lệnh cũ, ủy quyền sang node:test.
+ * Prefer: npm test
  */
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-function testBuildEmbeddingText() {
-  const text = buildEmbeddingText({
-    tieuDe: 'Căn 2PN Quận 2',
-    moTa: 'View sông, full nội thất',
-    diaChi: '123 Nguyễn Văn Linh',
-    quanHuyen: 'Quận 2',
-    gia: 12000000,
-    phongNgu: 2,
-    dienTich: 65,
-    loaiBds: 'can_ho',
-  });
-  assert(text.includes('Căn 2PN Quận 2'));
-  assert(text.includes('Quận 2'));
-  console.log('✓ buildEmbeddingText');
-}
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const result = spawnSync(
+  process.execPath,
+  ['--test', 'tests/unit/ai/aiPipeline.helpers.test.js'],
+  { cwd: root, stdio: 'inherit', env: process.env },
+);
 
-function testCosineSimilarity() {
-  const a = [1, 0, 0];
-  const b = [1, 0, 0];
-  const c = [0, 1, 0];
-  assert(Math.abs(cosineSimilarity(a, b) - 1) < 0.001);
-  assert(Math.abs(cosineSimilarity(a, c)) < 0.001);
-  console.log('✓ cosineSimilarity');
-}
-
-function testHandoffKeywords() {
-  assert(shouldHandoffByKeyword('Cho em giảm giá 2 triệu được không'));
-  assert(shouldHandoffByKeyword('Muốn đặt cọc giữ phòng'));
-  assert(!shouldHandoffByKeyword('Căn 2PN Quận 2 giá bao nhiêu'));
-  console.log('✓ shouldHandoffByKeyword');
-}
-
-function testThreshold() {
-  assert(getThresholdForMode('vector') === VECTOR_THRESHOLD);
-  assert(getThresholdForMode('text') === TEXT_THRESHOLD);
-  console.log(`✓ thresholds vector=${VECTOR_THRESHOLD}, text=${TEXT_THRESHOLD}`);
-}
-
-async function testModulesLoad() {
-  await import('../models/CrmKnowledge.js');
-  await import('../services/crmKnowledgeService.js');
-  await import('../services/geminiChatService.js');
-  await import('../controllers/crmKnowledgeController.js');
-  await import('../routes/crmKnowledge.js');
-  console.log('✓ modules load');
-}
-
-try {
-  testBuildEmbeddingText();
-  testCosineSimilarity();
-  testHandoffKeywords();
-  testThreshold();
-  await testModulesLoad();
-  console.log('\nAll CRM AI pipeline smoke tests passed.');
-} catch (error) {
-  console.error('\nTest failed:', error.message);
-  process.exit(1);
-}
+process.exit(result.status ?? 1);

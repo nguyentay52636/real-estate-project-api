@@ -1,21 +1,30 @@
 import jwt from 'jsonwebtoken';
 
-export const generateAccessToken = (user) => {
+/**
+ * secrets có thể truyền vào (test) hoặc lấy từ process.env (runtime).
+ */
+export const generateAccessToken = (user, secret = process.env.JWT_ACCESS_KEY) => {
   return jwt.sign(
-    { id: user._id, vaiTro: user.vaiTro },
-    process.env.JWT_ACCESS_KEY,
-    { expiresIn: "15m" }
+    { id: user._id ?? user.id, vaiTro: user.vaiTro },
+    secret,
+    { expiresIn: '15m' },
   );
 };
 
-export const generateRefreshToken = (user) => {
+export const generateRefreshToken = (user, secret = process.env.JWT_REFRESH_SECRET) => {
   return jwt.sign(
-    { id: user._id, vaiTro: user.vaiTro },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: "365d" }
+    { id: user._id ?? user.id, vaiTro: user.vaiTro },
+    secret,
+    { expiresIn: '365d' },
   );
 };
 
-export const verifyRefreshToken = (token) => {
-  return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+export const verifyRefreshToken = (token, secret = process.env.JWT_REFRESH_SECRET) => {
+  return jwt.verify(token, secret);
+};
+
+export default {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
 };

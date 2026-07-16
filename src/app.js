@@ -7,6 +7,7 @@ import passport from '#config/passport.js';
 import rootRouter from '#modules/index.routes.js';
 import { swaggerSpec, swaggerUi, swaggerUiOptions } from '#docs/swagger/swagger.js';
 import { getDirname } from '#shared/utils/esm.js';
+import { errorHandler } from '#shared/middleware/errorHandler.js';
 
 const dirname = getDirname(import.meta.url);
 
@@ -37,6 +38,8 @@ export function createApp() {
 
   app.use('/api', rootRouter);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+
+  app.use(errorHandler);
 
   return app;
 }

@@ -15,7 +15,14 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "test": "node --test tests/unit/**/*.test.js",
+    "test:auth": "node --test tests/unit/auth/**/*.test.js",
+    "test:ai": "node --test tests/unit/ai/**/*.test.js",
+    "test:property": "node --test tests/unit/property/**/*.test.js",
+    "test:users": "node --test tests/unit/users/**/*.test.js",
+    "test:chat": "node --test tests/unit/chat/**/*.test.js",
     "seed:crm": "node scripts/seed-crm-knowledge.js",
+    "test:crm-ai": "node scripts/test-crm-ai-pipeline.js",
     "setup:env": "node -e \"import fs from 'fs';if(!fs.existsSync('.env')&&fs.existsSync('.env.example')){fs.copyFileSync('.env.example','.env');console.log('Created .env from .env.example');}else{console.log('.env already exists or .env.example missing');}\""
   },
   "keywords": [],
