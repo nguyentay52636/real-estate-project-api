@@ -43,6 +43,9 @@
  *           type: string
  *         quanHuyen:
  *           type: string
+ *         duAn:
+ *           type: string
+ *           description: Tên dự án (dùng cho gợi ý BĐS liên quan)
  *         anhDaiDien:
  *           type: string
  *         gallery:
@@ -263,6 +266,49 @@
  *         description: Sai vai trò / tài khoản bị khóa
  *       404:
  *         description: Không tìm thấy user
+ *       500:
+ *         description: Lỗi server
+ */
+
+/**
+ * @swagger
+ * /api/property/{id}/related:
+ *   get:
+ *     summary: Gợi ý bất động sản liên quan (tương tự Batdongsan / OneHousing)
+ *     description: |
+ *       Trả về tối đa 6 BĐS liên quan (chỉ `dang_hoat_dong`, không gồm căn hiện tại).
+ *       Ưu tiên: cùng dự án + giá ±20% → cùng dự án → cùng loại & quận/huyện →
+ *       cùng tỉnh/thành & loại. Sắp xếp theo cùng dự án → giá gần → diện tích gần → mới nhất.
+ *     tags: [Property]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID bất động sản đang xem
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 6
+ *         description: Số lượng tối đa (1-12, mặc định 6)
+ *     responses:
+ *       200:
+ *         description: Danh sách BĐS liên quan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Property'
+ *       404:
+ *         description: Không tìm thấy bất động sản
  *       500:
  *         description: Lỗi server
  */

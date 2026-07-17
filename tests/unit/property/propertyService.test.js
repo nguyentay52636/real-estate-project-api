@@ -83,6 +83,104 @@ describe('propertyService.getPropertyById', () => {
   });
 });
 
+describe('propertyService.getRelatedProperties', () => {
+  function withToObject(obj) {
+    return { ...obj, toObject() { return { ...obj }; } };
+  }
+
+  it('throws 404 when current property not found', async () => {
+    const Property = {
+      findById: mock.fn(() => ({ lean: mock.fn(async () => null) })),
+    };
+    const service = createPropertyService({ Property, User: {} });
+    await assert.rejects(
+      () => service.getRelatedProperties('missing'),
+      (err) => err instanceof AppError && err.statusCode === 404,
+    );
+  });
+
+  it('excludes current, dedups, and prioritises same project', async () => {
+    const current = {
+      _id: 'p0',
+      duAn: 'Vinhomes',
+      loaiBds: 'can_ho',
+      quanHuyen: 'Bình Thạnh',
+      tinhThanh: 'TP.HCM',
+      gia: 1000,
+      dienTich: 80,
+    };
+
+    const sameProject = withToObject({
+      _id: 'p1',
+      duAn: 'Vinhomes',
+      gia: 1050,
+      dienTich: 82,
+      createdAt: '2026-01-02',
+      nguoiDungId: { ten: 'A', vaiTro: { ten: 'chu_tro' } },
+    });
+    const sameDistrict = withToObject({
+      _id: 'p2',
+      duAn: 'Khac',
+      gia: 2000,
+      dienTich: 60,
+      createdAt: '2026-01-01',
+      nguoiDungId: { ten: 'B', vaiTro: { ten: 'chu_tro' } },
+    });
+
+    const tierResults = [
+      [sameProject], // tầng 1: cùng dự án + giá ±20%
+      [sameProject], // tầng 2: cùng dự án (trùng p1)
+      [sameDistrict], // tầng 3: cùng loại + quận
+      [], // tầng 4
+    ];
+    let call = 0;
+
+    const Property = {
+      findById: mock.fn(() => ({ lean: mock.fn(async () => current) })),
+      find: mock.fn(() => chainable(tierResults[call++] ?? [])),
+    };
+
+    const service = createPropertyService({ Property, User: {} });
+    const data = await service.getRelatedProperties('p0', { limit: 6 });
+
+    const ids = data.map((d) => d._id);
+    assert.ok(!ids.includes('p0'));
+    assert.equal(new Set(ids).size, ids.length); // không trùng
+    assert.equal(ids[0], 'p1'); // cùng dự án lên trước
+    assert.ok(data[0].chuNha); // có chuNha
+  });
+
+  it('caps results at 6', async () => {
+    const current = {
+      _id: 'p0',
+      duAn: '',
+      loaiBds: 'can_ho',
+      quanHuyen: 'Q1',
+      tinhThanh: 'TP.HCM',
+      gia: 1000,
+      dienTich: 80,
+    };
+    const many = Array.from({ length: 10 }, (_, i) =>
+      withToObject({
+        _id: `x${i}`,
+        gia: 1000 + i,
+        dienTich: 80,
+        createdAt: '2026-01-01',
+        nguoiDungId: { ten: 'A' },
+      }),
+    );
+
+    let call = 0;
+    const Property = {
+      findById: mock.fn(() => ({ lean: mock.fn(async () => current) })),
+      find: mock.fn(() => chainable(call++ === 0 ? many : [])),
+    };
+    const service = createPropertyService({ Property, User: {} });
+    const data = await service.getRelatedProperties('p0');
+    assert.equal(data.length, 6);
+  });
+});
+
 describe('propertyService.getPropertyAuthor', () => {
   it('throws 404 when property not found', async () => {
     const Property = {

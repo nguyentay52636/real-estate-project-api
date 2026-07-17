@@ -107,6 +107,82 @@ export function createPropertyService(deps = {}) {
     return toPropertyResponse(property);
   }
 
+
+  async function getRelatedProperties(id, { limit = 6 } = {}) {
+    const current = await Property.findById(id).lean();
+    if (!current) throw new AppError('Không tìm thấy bất động sản', 404);
+
+    const maxItems = Math.min(12, Math.max(1, parseInt(limit, 10) || 6));
+
+    const collected = new Map();
+    const excludedIds = [current._id];
+
+    const priceLow = current.gia * 0.8;
+    const priceHigh = current.gia * 1.2;
+
+    // Các tầng ưu tiên. Mỗi tầng là 1 filter; chỉ chạy khi còn thiếu.
+    const tiers = [];
+
+    // Tầng 1: cùng dự án + giá trong khoảng ±20%
+    if (current.duAn) {
+      tiers.push({
+        duAn: current.duAn,
+        gia: { $gte: priceLow, $lte: priceHigh },
+      });
+      // Tầng 2: cùng dự án (giá bất kỳ)
+      tiers.push({ duAn: current.duAn });
+    }
+
+    // Tầng 3: cùng loại BĐS + cùng quận/huyện
+    tiers.push({ loaiBds: current.loaiBds, quanHuyen: current.quanHuyen });
+
+    // Tầng 4: cùng tỉnh/thành + cùng loại BĐS
+    tiers.push({ tinhThanh: current.tinhThanh, loaiBds: current.loaiBds });
+
+    for (const tierFilter of tiers) {
+      if (collected.size >= maxItems) break;
+
+      const remaining = maxItems - collected.size;
+      const filter = {
+        ...tierFilter,
+        trangThai: 'dang_hoat_dong',
+        _id: { $nin: excludedIds },
+      };
+
+      const rows = await populateChuNha(Property.find(filter))
+        .sort({ createdAt: -1 })
+        .limit(remaining);
+
+      for (const row of rows) {
+        const key = String(row._id);
+        if (!collected.has(key)) {
+          collected.set(key, row);
+          excludedIds.push(row._id);
+        }
+      }
+    }
+
+    const currentDuAn = current.duAn || null;
+
+    // Sắp xếp theo mức độ liên quan: cùng dự án → giá gần → diện tích gần → mới nhất
+    const sorted = [...collected.values()].sort((a, b) => {
+      const aSameDuAn = currentDuAn && a.duAn === currentDuAn ? 1 : 0;
+      const bSameDuAn = currentDuAn && b.duAn === currentDuAn ? 1 : 0;
+      if (aSameDuAn !== bSameDuAn) return bSameDuAn - aSameDuAn;
+
+      const priceDiff = Math.abs(a.gia - current.gia) - Math.abs(b.gia - current.gia);
+      if (priceDiff !== 0) return priceDiff;
+
+      const areaDiff =
+        Math.abs(a.dienTich - current.dienTich) - Math.abs(b.dienTich - current.dienTich);
+      if (areaDiff !== 0) return areaDiff;
+
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    return sorted.slice(0, maxItems).map(toPropertyResponse);
+  }
+
   async function getPropertyAuthor(id) {
     const property = await populateChuNha(Property.findById(id));
     if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
@@ -228,6 +304,7 @@ export function createPropertyService(deps = {}) {
   return {
     getAllProperties,
     getPropertyById,
+    getRelatedProperties,
     getPropertyAuthor,
     getPropertyBySlug,
     getPropertiesByDistrict,

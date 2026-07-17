@@ -19,6 +19,14 @@ const propertyController = {
     });
   }),
 
+  getRelatedProperties: asyncHandler(async (req, res) => {
+    const data = await propertyService.getRelatedProperties(req.params.id, req.query);
+    return res.status(200).json({
+      message: 'Lấy danh sách bất động sản liên quan thành công',
+      data,
+    });
+  }),
+
   getPropertyAuthor: asyncHandler(async (req, res) => {
     const author = await propertyService.getPropertyAuthor(req.params.id);
     return res.status(200).json({

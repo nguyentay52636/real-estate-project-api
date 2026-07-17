@@ -17,6 +17,7 @@ const BDSchema = new mongoose.Schema(
     diaChi: { type: String, required: true }, // Địa chỉ cụ thể
     tinhThanh: { type: String, required: true }, // Tỉnh/Thành phố
     quanHuyen: { type: String, required: true }, // Quận/Huyện
+    duAn: { type: String, default: '', index: true }, // Tên dự án (dùng cho gợi ý liên quan)
 
     anhDaiDien: { type: String, required: true }, // Ảnh đại diện (thumbnail)
     gallery: [String], // Mảng link ảnh gallery

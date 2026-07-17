@@ -18,6 +18,9 @@ router.get("/user/:userId", propertyController.getPropertiesByUser);
 // GET /api/property/:id/author — Tác giả (người đăng bài) + vai trò
 router.get("/:id/author", propertyController.getPropertyAuthor);
 
+// GET /api/property/:id/related — Bất động sản liên quan (gợi ý)
+router.get("/:id/related", propertyController.getRelatedProperties);
+
 router.get("/:id", propertyController.getPropertyById);
 
 router.post("/", propertyController.createProperty);
