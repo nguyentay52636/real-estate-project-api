@@ -5,7 +5,7 @@ import { AppError } from '#shared/errors/AppError.js';
 
 const USER_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
 const PROPERTY_FIELDS =
-  'tieuDe slug anhDaiDien diaChi quanHuyen tinhThanh gia trangThai nguoiDungId loaiBds';
+  'tieuDe slug anhDaiDien diaChi quanHuyen tinhThanh gia trangThai nguoiDungId loaiBds loaiGiaoDich';
 const VALID_STATUSES = ['cho_xac_nhan', 'da_xac_nhan', 'da_huy'];
 
 function parsePagination({ page = 1, limit = 10 } = {}) {

@@ -12,6 +12,12 @@ const BDSchema = new mongoose.Schema(
       enum: ["can_ho", "nha_nguyen_can", "studio", "penthouse"],
       required: true,
     },
+    loaiGiaoDich: {
+      type: String,
+      enum: ["ban", "cho_thue"],
+      required: true,
+      index: true,
+    }, // Phân biệt tin bán và tin cho thuê
     gia: { type: Number, required: true }, // Giá
     dienTich: { type: Number, required: true }, // Diện tích (m2)
     diaChi: { type: String, required: true }, // Địa chỉ cụ thể
@@ -28,7 +34,7 @@ const BDSchema = new mongoose.Schema(
 
     trangThai: {
       type: String,
-      enum: ["dang_hoat_dong", "da_cho_thue"],
+      enum: ["dang_hoat_dong", "da_cho_thue", "da_ban"],
       default: "dang_hoat_dong",
     },
 

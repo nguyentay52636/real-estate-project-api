@@ -15,6 +15,7 @@
  *         - tieuDe
  *         - moTa
  *         - loaiBds
+ *         - loaiGiaoDich
  *         - gia
  *         - dienTich
  *         - diaChi
@@ -33,6 +34,10 @@
  *         loaiBds:
  *           type: string
  *           enum: [can_ho, nha_nguyen_can, studio, penthouse]
+ *         loaiGiaoDich:
+ *           type: string
+ *           enum: [ban, cho_thue]
+ *           description: Danh mục giao dịch của tin
  *         gia:
  *           type: number
  *         dienTich:
@@ -60,7 +65,7 @@
  *           type: number
  *         trangThai:
  *           type: string
- *           enum: [dang_hoat_dong, da_cho_thue]
+ *           enum: [dang_hoat_dong, da_cho_thue, da_ban]
  *         nguoiDungId:
  *           description: ID hoặc object người đăng (populate)
  *           oneOf:
@@ -151,6 +156,13 @@
  *   get:
  *     summary: Lấy tất cả bất động sản
  *     tags: [Property]
+ *     parameters:
+ *       - in: query
+ *         name: loaiGiaoDich
+ *         schema:
+ *           type: string
+ *           enum: [ban, cho_thue]
+ *         description: Lọc tin bán hoặc cho thuê
  *     responses:
  *       200:
  *         description: Thành công
@@ -179,6 +191,7 @@
  *               - tieuDe
  *               - moTa
  *               - loaiBds
+ *               - loaiGiaoDich
  *               - gia
  *               - dienTich
  *               - diaChi
@@ -197,6 +210,10 @@
  *               loaiBds:
  *                 type: string
  *                 enum: [can_ho, nha_nguyen_can, studio, penthouse]
+ *               loaiGiaoDich:
+ *                 type: string
+ *                 enum: [ban, cho_thue]
+ *                 description: `ban` hoặc `cho_thue`
  *               gia:
  *                 type: number
  *               dienTich:
@@ -221,7 +238,7 @@
  *                 type: number
  *               trangThai:
  *                 type: string
- *                 enum: [dang_hoat_dong, da_cho_thue]
+ *                 enum: [dang_hoat_dong, da_cho_thue, da_ban]
  *               nguoiDungId:
  *                 type: string
  *                 description: ID user chủ đăng (role chu_tro hoặc admin)

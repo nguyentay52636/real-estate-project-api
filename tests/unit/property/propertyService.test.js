@@ -40,6 +40,28 @@ describe('propertyService.getAllProperties', () => {
     assert.equal(pagination.page, 1);
     assert.equal(pagination.totalPages, 1);
   });
+
+  it('filters by loaiGiaoDich', async () => {
+    const Property = {
+      find: mock.fn(() => chainable([])),
+      countDocuments: mock.fn(async () => 0),
+    };
+    const service = createPropertyService({ Property, User: {} });
+
+    await service.getAllProperties({ loaiGiaoDich: 'cho_thue' });
+
+    assert.deepEqual(Property.find.mock.calls[0].arguments[0], {
+      loaiGiaoDich: 'cho_thue',
+    });
+  });
+
+  it('rejects invalid loaiGiaoDich', async () => {
+    const service = createPropertyService({ Property: {}, User: {} });
+    await assert.rejects(
+      () => service.getAllProperties({ loaiGiaoDich: 'sai' }),
+      (err) => err instanceof AppError && err.statusCode === 400,
+    );
+  });
 });
 
 describe('propertyService.getPropertyById', () => {

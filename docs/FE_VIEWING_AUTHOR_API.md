@@ -14,6 +14,7 @@ Không gửi object `chuNha`. Server check user + role `chu_tro` | `admin`, rồ
   "tieuDe": "Căn hộ Vinhomes cần giờ",
   "moTa": "...",
   "loaiBds": "can_ho",
+  "loaiGiaoDich": "ban",
   "gia": 6500000000,
   "dienTich": 82,
   "diaChi": "208 Nguyễn Hữu Cảnh",
@@ -33,6 +34,14 @@ Không gửi object `chuNha`. Server check user + role `chu_tro` | `admin`, rồ
   }
 }
 ```
+
+`loaiBds` là loại tài sản; `loaiGiaoDich` là danh mục tin:
+
+- `ban`: bất động sản mua bán
+- `cho_thue`: bất động sản cho thuê
+
+Danh sách có thể lọc bằng `GET /api/property?loaiGiaoDich=ban` hoặc
+`GET /api/property?loaiGiaoDich=cho_thue`.
 
 ### Response (list / detail / create) — có `chuNha`
 

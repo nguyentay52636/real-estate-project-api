@@ -3,7 +3,8 @@ import UserModel from '#models/User.js';
 import { AppError } from '#shared/errors/AppError.js';
 
 const CHU_NHA_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
-const VALID_STATUSES = ['dang_hoat_dong', 'da_cho_thue'];
+const VALID_STATUSES = ['dang_hoat_dong', 'da_cho_thue', 'da_ban'];
+const VALID_TRANSACTION_TYPES = ['ban', 'cho_thue'];
 
 function parsePagination({ page = 1, limit = 10 } = {}) {
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -69,6 +70,7 @@ export function createPropertyService(deps = {}) {
   async function getAllProperties(query = {}) {
     const {
       loaiBds,
+      loaiGiaoDich,
       trangThai,
       tinhThanh,
       quanHuyen,
@@ -81,6 +83,15 @@ export function createPropertyService(deps = {}) {
 
     const filter = {};
     if (loaiBds) filter.loaiBds = loaiBds;
+    if (loaiGiaoDich) {
+      if (!VALID_TRANSACTION_TYPES.includes(loaiGiaoDich)) {
+        throw new AppError(
+          `Loại giao dịch không hợp lệ. Chỉ chấp nhận: ${VALID_TRANSACTION_TYPES.join(', ')}`,
+          400,
+        );
+      }
+      filter.loaiGiaoDich = loaiGiaoDich;
+    }
     if (trangThai) filter.trangThai = trangThai;
     if (tinhThanh) filter.tinhThanh = { $regex: new RegExp(tinhThanh, 'i') };
     if (quanHuyen) filter.quanHuyen = { $regex: new RegExp(quanHuyen, 'i') };
@@ -148,6 +159,9 @@ export function createPropertyService(deps = {}) {
         trangThai: 'dang_hoat_dong',
         _id: { $nin: excludedIds },
       };
+      if (current.loaiGiaoDich) {
+        filter.loaiGiaoDich = current.loaiGiaoDich;
+      }
 
       const rows = await populateChuNha(Property.find(filter))
         .sort({ createdAt: -1 })
