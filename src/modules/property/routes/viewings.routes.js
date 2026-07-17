@@ -3,19 +3,19 @@ import viewingsController from '#modules/property/controllers/viewingsController
 
 const router = express.Router();
 
-// GET /api/viewings
-router.get("/", viewingsController.getAllViewings);
+// GET /api/viewing — danh sách lịch hẹn (filter: nguoiDungId, batDongSanId, trangThai, page, limit)
+router.get('/', viewingsController.getAllViewings);
 
-// GET /api/viewings/:id
-router.get("/:id", viewingsController.getViewingById);
+// GET /api/viewing/:id
+router.get('/:id', viewingsController.getViewingById);
 
-// POST /api/viewings
-router.post("/", viewingsController.createViewing);
+// POST /api/viewing — đặt lịch xem nhà
+router.post('/', viewingsController.createViewing);
 
-// PUT /api/viewings/:id
-router.put("/:id", viewingsController.updateViewing);
+// PUT /api/viewing/:id — sửa lịch
+router.put('/:id', viewingsController.updateViewing);
 
-// DELETE /api/viewings/:id
-router.delete("/:id", viewingsController.deleteViewing);
+// DELETE /api/viewing/:id — xoá lịch
+router.delete('/:id', viewingsController.deleteViewing);
 
 export default router;

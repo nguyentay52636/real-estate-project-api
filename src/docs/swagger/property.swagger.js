@@ -59,7 +59,34 @@
  *           type: string
  *           enum: [dang_hoat_dong, da_cho_thue]
  *         nguoiDungId:
- *           type: string
+ *           description: ID hoặc object người đăng (populate)
+ *           oneOf:
+ *             - type: string
+ *             - type: object
+ *         chuNha:
+ *           type: object
+ *           description: Thông tin chủ đăng tin (để liên hệ / đặt lịch) — luôn có trong response list & detail
+ *           properties:
+ *             _id:
+ *               type: string
+ *             ten:
+ *               type: string
+ *             email:
+ *               type: string
+ *             soDienThoai:
+ *               type: string
+ *             anhDaiDien:
+ *               type: string
+ *             trangThai:
+ *               type: string
+ *             vaiTro:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 ten:
+ *                   type: string
+ *                   example: chu_tro
  *         badge:
  *           type: string
  *         subtitle:
@@ -99,12 +126,20 @@
  *           properties:
  *             tang:
  *               type: string
+ *               description: Tầng
+ *               example: Tầng 18
  *             huong:
  *               type: string
+ *               description: Hướng nhà / căn hộ
+ *               example: Đông Nam
  *             banCong:
- *               type: string
+ *               type: boolean
+ *               description: Có ban công hay không
+ *               example: true
  *             noiThat:
  *               type: string
+ *               description: Tình trạng nội thất
+ *               example: Full nội thất cao cấp
  */
 
 /**
@@ -125,23 +160,170 @@
  *       500:
  *         description: Lỗi server
  *   post:
- *     summary: Tạo mới bất động sản
+ *     summary: Tạo mới bất động sản (chỉ cần nguoiDungId + dữ liệu tin)
+ *     description: |
+ *       Body **không** gửi object `chuNha`. Chỉ gửi `nguoiDungId` (string).
+ *       Server kiểm tra user tồn tại và vai trò `chu_tro` hoặc `admin`,
+ *       rồi trả response kèm `chuNha` đã populate.
  *     tags: [Property]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Property'
+ *             type: object
+ *             required:
+ *               - tieuDe
+ *               - moTa
+ *               - loaiBds
+ *               - gia
+ *               - dienTich
+ *               - diaChi
+ *               - tinhThanh
+ *               - quanHuyen
+ *               - anhDaiDien
+ *               - phongNgu
+ *               - phongTam
+ *               - choDauXe
+ *               - nguoiDungId
+ *             properties:
+ *               tieuDe:
+ *                 type: string
+ *               moTa:
+ *                 type: string
+ *               loaiBds:
+ *                 type: string
+ *                 enum: [can_ho, nha_nguyen_can, studio, penthouse]
+ *               gia:
+ *                 type: number
+ *               dienTich:
+ *                 type: number
+ *               diaChi:
+ *                 type: string
+ *               tinhThanh:
+ *                 type: string
+ *               quanHuyen:
+ *                 type: string
+ *               anhDaiDien:
+ *                 type: string
+ *               gallery:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               phongNgu:
+ *                 type: number
+ *               phongTam:
+ *                 type: number
+ *               choDauXe:
+ *                 type: number
+ *               trangThai:
+ *                 type: string
+ *                 enum: [dang_hoat_dong, da_cho_thue]
+ *               nguoiDungId:
+ *                 type: string
+ *                 description: ID user chủ đăng (role chu_tro hoặc admin)
+ *               badge:
+ *                 type: string
+ *               subtitle:
+ *                 type: string
+ *               features:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               overlay:
+ *                 type: object
+ *               colorGradient:
+ *                 type: string
+ *               thongTinChiTiet:
+ *                 type: object
+ *                 description: Tầng, hướng, ban công, nội thất
+ *                 properties:
+ *                   tang:
+ *                     type: string
+ *                     example: Tầng 18
+ *                   huong:
+ *                     type: string
+ *                     example: Đông Nam
+ *                   banCong:
+ *                     type: boolean
+ *                     example: true
+ *                   noiThat:
+ *                     type: string
+ *                     example: Full nội thất cao cấp
  *     responses:
  *       201:
- *         description: Đã tạo thành công
+ *         description: Đã tạo thành công — response có thêm chuNha
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Property'
  *       400:
- *         description: Dữ liệu không hợp lệ
+ *         description: Thiếu nguoiDungId hoặc dữ liệu không hợp lệ
+ *       403:
+ *         description: Sai vai trò / tài khoản bị khóa
+ *       404:
+ *         description: Không tìm thấy user
+ *       500:
+ *         description: Lỗi server
+ */
+
+/**
+ * @swagger
+ * /api/property/{id}/author:
+ *   get:
+ *     summary: Lấy thông tin tác giả (người đăng bài) kèm vai trò
+ *     tags: [Property]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID bất động sản
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     propertyId:
+ *                       type: string
+ *                     tieuDe:
+ *                       type: string
+ *                     slug:
+ *                       type: string
+ *                     tacGia:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         ten:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         soDienThoai:
+ *                           type: string
+ *                         anhDaiDien:
+ *                           type: string
+ *                         trangThai:
+ *                           type: string
+ *                         vaiTro:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                             ten:
+ *                               type: string
+ *                               example: chu_tro
+ *       404:
+ *         description: Không tìm thấy BĐS hoặc tác giả
  *       500:
  *         description: Lỗi server
  */

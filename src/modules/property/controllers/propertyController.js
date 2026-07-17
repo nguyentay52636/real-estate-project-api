@@ -19,6 +19,14 @@ const propertyController = {
     });
   }),
 
+  getPropertyAuthor: asyncHandler(async (req, res) => {
+    const author = await propertyService.getPropertyAuthor(req.params.id);
+    return res.status(200).json({
+      message: 'Lấy thông tin tác giả bài đăng thành công',
+      data: author,
+    });
+  }),
+
   getPropertyBySlug: asyncHandler(async (req, res) => {
     const property = await propertyService.getPropertyBySlug(req.params.slug);
     return res.status(200).json({

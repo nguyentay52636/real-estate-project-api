@@ -57,25 +57,19 @@ const BDSchema = new mongoose.Schema(
       amenities: [String], // Các tiện ích
     },
 
-    colorGradient: String, // Gradient màu cho card
+    colorGradient: String,
 
-    // Thông tin bổ sung cho tab "Thông tin chi tiết"
     thongTinChiTiet: {
-      tang: String,
-      huong: String,
-      banCong: String,
-      noiThat: String,
-      // ...bổ sung thêm nếu UI có
+      tang: { type: String, default: '' }, // Tầng
+      huong: { type: String, default: '' }, // Hướng (Đông Nam, Nam, …)
+      banCong: { type: Boolean, default: false }, // Có ban công hay không
+      noiThat: { type: String, default: '' }, // Nội thất
     },
   },
   { timestamps: true }
 );
 
-// ──────────────────────────────────────────────
-// Helper: tạo slug duy nhất từ tieuDe
-// ──────────────────────────────────────────────
 async function generateUniqueSlug(tieuDe, excludeId = null) {
-  // Chuyển tiếng Việt → ASCII rồi slugify
   const baseSlug = slugify(tieuDe, {
     lower: true,
     strict: true,
@@ -109,9 +103,6 @@ BDSchema.pre("save", async function (next) {
   next();
 });
 
-// ──────────────────────────────────────────────
-// Auto-regenerate slug khi dùng findByIdAndUpdate
-// ──────────────────────────────────────────────
 BDSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate();
   if (update && update.tieuDe) {

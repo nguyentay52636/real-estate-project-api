@@ -2,7 +2,7 @@ import PropertyModel from '#models/Property.js';
 import UserModel from '#models/User.js';
 import { AppError } from '#shared/errors/AppError.js';
 
-const OWNER_FIELDS = 'ten email soDienThoai anhDaiDien';
+const CHU_NHA_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
 const VALID_STATUSES = ['dang_hoat_dong', 'da_cho_thue'];
 
 function parsePagination({ page = 1, limit = 10 } = {}) {
@@ -20,21 +20,50 @@ function buildPaginationMeta(total, pageNum, limitNum) {
   };
 }
 
+/** Populate chủ đăng tin + vai trò (chu_tro, …) */
+function populateChuNha(query) {
+  return query.populate({
+    path: 'nguoiDungId',
+    select: CHU_NHA_FIELDS,
+    populate: { path: 'vaiTro', select: 'ten' },
+  });
+}
+
+/**
+ * Gắn field `chuNha` rõ nghĩa cho FE (liên hệ / đặt lịch với chủ đăng).
+ * `nguoiDungId` vẫn giữ object đã populate để tương thích cũ.
+ */
+function toPropertyResponse(doc) {
+  if (!doc) return null;
+  const property = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+  const owner =
+    property.nguoiDungId && typeof property.nguoiDungId === 'object'
+      ? property.nguoiDungId
+      : null;
+
+  property.chuNha = owner;
+  return property;
+}
+
+function mapPropertyList(rows) {
+  return rows.map(toPropertyResponse);
+}
+
 export function createPropertyService(deps = {}) {
   const Property = deps.Property ?? PropertyModel;
   const User = deps.User ?? UserModel;
 
   async function listWithPagination(filter, query, sortOptions = { createdAt: -1 }) {
     const { pageNum, limitNum, skip } = parsePagination(query);
-    const [data, total] = await Promise.all([
-      Property.find(filter)
-        .populate('nguoiDungId', OWNER_FIELDS)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limitNum),
+    const [rows, total] = await Promise.all([
+      populateChuNha(Property.find(filter)).sort(sortOptions).skip(skip).limit(limitNum),
       Property.countDocuments(filter),
     ]);
-    return { data, pagination: buildPaginationMeta(total, pageNum, limitNum), total };
+    return {
+      data: mapPropertyList(rows),
+      pagination: buildPaginationMeta(total, pageNum, limitNum),
+      total,
+    };
   }
 
   async function getAllProperties(query = {}) {
@@ -73,15 +102,31 @@ export function createPropertyService(deps = {}) {
   }
 
   async function getPropertyById(id) {
-    const property = await Property.findById(id).populate('nguoiDungId', OWNER_FIELDS);
+    const property = await populateChuNha(Property.findById(id));
     if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
-    return property;
+    return toPropertyResponse(property);
+  }
+
+  async function getPropertyAuthor(id) {
+    const property = await populateChuNha(Property.findById(id));
+    if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
+    if (!property.nguoiDungId) {
+      throw new AppError('Không tìm thấy chủ nhà đăng tin', 404);
+    }
+
+    return {
+      propertyId: property._id,
+      tieuDe: property.tieuDe,
+      slug: property.slug,
+      chuNha: property.nguoiDungId,
+      tacGia: property.nguoiDungId,
+    };
   }
 
   async function getPropertyBySlug(slug) {
-    const property = await Property.findOne({ slug }).populate('nguoiDungId', OWNER_FIELDS);
+    const property = await populateChuNha(Property.findOne({ slug }));
     if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
-    return property;
+    return toPropertyResponse(property);
   }
 
   async function getPropertiesByDistrict(district, query = {}) {
@@ -99,21 +144,67 @@ export function createPropertyService(deps = {}) {
     return { data, pagination };
   }
 
-  async function createProperty(input) {
-    const userData = await User.findById(input.nguoiDungId);
-    if (!userData) throw new AppError('Không tìm thấy người dùng', 404);
+  async function assertCanPostProperty(nguoiDungId) {
+    if (!nguoiDungId) {
+      throw new AppError('Thiếu nguoiDungId (ID chủ đăng tin)', 400);
+    }
 
-    const newProperty = new Property(input);
-    return newProperty.save();
+    const user = await User.findById(nguoiDungId).populate('vaiTro', 'ten');
+    if (!user) throw new AppError('Không tìm thấy người dùng', 404);
+
+    if (user.trangThai === 'khoa') {
+      throw new AppError('Tài khoản đã bị khóa, không thể đăng tin', 403);
+    }
+
+    const roleName = user.vaiTro?.ten;
+    // Chỉ chủ trọ (hoặc admin vận hành) được đăng tin trên sàn
+    if (!['chu_tro', 'admin'].includes(roleName)) {
+      throw new AppError(
+        'Chỉ tài khoản vai trò chu_tro (hoặc admin) mới được đăng tin',
+        403,
+      );
+    }
+
+    return user;
+  }
+
+  /** Body tạo/sửa tin: chỉ nhận field schema + nguoiDungId, bỏ chuNha/tacGia (chỉ có ở response). */
+  function sanitizePropertyInput(input = {}) {
+    const {
+      chuNha: _chuNha,
+      tacGia: _tacGia,
+      slug: _slug,
+      _id: _id,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      __v: _v,
+      ...rest
+    } = input;
+    return rest;
+  }
+
+  async function createProperty(input) {
+    const payload = sanitizePropertyInput(input);
+    await assertCanPostProperty(payload.nguoiDungId);
+
+    const newProperty = new Property(payload);
+    const saved = await newProperty.save();
+    return getPropertyById(saved._id);
   }
 
   async function updateProperty(id, input) {
-    const updated = await Property.findByIdAndUpdate(id, input, {
+    const payload = sanitizePropertyInput(input);
+    // Không cho đổi chủ tin qua update thường; nếu gửi nguoiDungId thì vẫn check role
+    if (payload.nguoiDungId) {
+      await assertCanPostProperty(payload.nguoiDungId);
+    }
+
+    const updated = await Property.findByIdAndUpdate(id, payload, {
       new: true,
       runValidators: true,
-    }).populate('nguoiDungId', OWNER_FIELDS);
+    });
     if (!updated) throw new AppError('Không tìm thấy bất động sản', 404);
-    return updated;
+    return getPropertyById(updated._id);
   }
 
   async function updatePropertyStatus(id, trangThai) {
@@ -125,7 +216,7 @@ export function createPropertyService(deps = {}) {
     }
     const updated = await Property.findByIdAndUpdate(id, { trangThai }, { new: true });
     if (!updated) throw new AppError('Không tìm thấy bất động sản', 404);
-    return updated;
+    return getPropertyById(updated._id);
   }
 
   async function deleteProperty(id) {
@@ -137,6 +228,7 @@ export function createPropertyService(deps = {}) {
   return {
     getAllProperties,
     getPropertyById,
+    getPropertyAuthor,
     getPropertyBySlug,
     getPropertiesByDistrict,
     getPropertiesByUser,

@@ -2,7 +2,7 @@
  * @swagger
  * tags:
  *   name: Viewing
- *   description: API quản lý lịch xem nhà
+ *   description: API quản lý lịch hẹn xem nhà (LichXemNha)
  */
 
 /**
@@ -14,45 +14,71 @@
  *       properties:
  *         _id:
  *           type: string
- *           description: ID của lịch xem nhà
+ *           description: ID lịch hẹn
  *         nguoiDungId:
- *           type: string
- *           description: ID người dùng đặt lịch
+ *           type: object
+ *           description: Người đặt lịch (populate + vaiTro)
  *         batDongSanId:
- *           type: string
- *           description: ID bất động sản
+ *           type: object
+ *           description: Bất động sản muốn xem
+ *         tacGia:
+ *           type: object
+ *           description: Người đăng bài BĐS (chủ tin / chu_tro) kèm vaiTro
  *         thoiGian:
  *           type: string
  *           format: date-time
- *           description: Thời gian xem nhà
  *         ghiChu:
  *           type: string
- *           description: Ghi chú thêm
  *         trangThai:
  *           type: string
  *           enum: [cho_xac_nhan, da_xac_nhan, da_huy]
- *           description: Trạng thái lịch xem nhà
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
  */
 
 /**
  * @swagger
  * /api/viewing:
  *   get:
- *     summary: Lấy danh sách tất cả lịch xem nhà
+ *     summary: Lấy danh sách lịch hẹn xem nhà
  *     tags: [Viewing]
+ *     parameters:
+ *       - in: query
+ *         name: nguoiDungId
+ *         schema:
+ *           type: string
+ *         description: Lọc theo người đặt lịch
+ *       - in: query
+ *         name: batDongSanId
+ *         schema:
+ *           type: string
+ *         description: Lọc theo bất động sản
+ *       - in: query
+ *         name: trangThai
+ *         schema:
+ *           type: string
+ *           enum: [cho_xac_nhan, da_xac_nhan, da_huy]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
  *     responses:
  *       200:
  *         description: Thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Viewing'
  *       500:
  *         description: Lỗi server
  *   post:
- *     summary: Tạo lịch xem nhà mới
+ *     summary: Đặt lịch hẹn xem nhà
  *     tags: [Viewing]
  *     requestBody:
  *       required: true
@@ -72,18 +98,20 @@
  *               thoiGian:
  *                 type: string
  *                 format: date-time
+ *                 example: "2026-07-20T09:00:00.000Z"
  *               ghiChu:
  *                 type: string
+ *                 example: "Muốn xem vào buổi sáng"
  *               trangThai:
  *                 type: string
  *                 enum: [cho_xac_nhan, da_xac_nhan, da_huy]
  *     responses:
  *       201:
- *         description: Tạo lịch xem nhà thành công
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Viewing'
+ *         description: Đặt lịch thành công
+ *       400:
+ *         description: Thiếu dữ liệu hoặc trạng thái không hợp lệ
+ *       404:
+ *         description: Không tìm thấy user hoặc BĐS
  *       500:
  *         description: Lỗi server
  */
@@ -92,34 +120,28 @@
  * @swagger
  * /api/viewing/{id}:
  *   get:
- *     summary: Lấy thông tin lịch xem nhà theo ID
+ *     summary: Lấy chi tiết lịch hẹn theo ID
  *     tags: [Viewing]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID của lịch xem nhà
  *         schema:
  *           type: string
  *     responses:
  *       200:
- *         description: Lấy thành công thông tin lịch xem nhà
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Viewing'
+ *         description: Thành công
  *       404:
- *         description: Không tìm thấy lịch xem nhà
+ *         description: Không tìm thấy lịch hẹn
  *       500:
  *         description: Lỗi server
  *   put:
- *     summary: Cập nhật lịch xem nhà
+ *     summary: Cập nhật lịch hẹn
  *     tags: [Viewing]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID của lịch xem nhà
  *         schema:
  *           type: string
  *     requestBody:
@@ -136,32 +158,31 @@
  *               trangThai:
  *                 type: string
  *                 enum: [cho_xac_nhan, da_xac_nhan, da_huy]
+ *               batDongSanId:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Cập nhật thành công
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Viewing'
+ *       400:
+ *         description: Trạng thái không hợp lệ
  *       404:
- *         description: Không tìm thấy lịch xem nhà
+ *         description: Không tìm thấy lịch hẹn
  *       500:
  *         description: Lỗi server
  *   delete:
- *     summary: Xoá lịch xem nhà
+ *     summary: Xoá lịch hẹn
  *     tags: [Viewing]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID của lịch xem nhà
  *         schema:
  *           type: string
  *     responses:
  *       200:
  *         description: Đã xoá thành công
  *       404:
- *         description: Không tìm thấy lịch xem nhà
+ *         description: Không tìm thấy lịch hẹn
  *       500:
  *         description: Lỗi server
  */
