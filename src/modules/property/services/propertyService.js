@@ -3,7 +3,7 @@ import UserModel from '#models/User.js';
 import { AppError } from '#shared/errors/AppError.js';
 
 const CHU_NHA_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
-const VALID_STATUSES = ['dang_hoat_dong', 'da_cho_thue', 'da_ban'];
+const VALID_STATUSES = ['cho_duyet', 'dang_hoat_dong', 'da_cho_thue', 'da_ban'];
 const VALID_TRANSACTION_TYPES = ['ban', 'cho_thue'];
 
 function parsePagination({ page = 1, limit = 10 } = {}) {
@@ -247,10 +247,10 @@ export function createPropertyService(deps = {}) {
     }
 
     const roleName = user.vaiTro?.ten;
-    // Chỉ chủ trọ (hoặc admin vận hành) được đăng tin trên sàn
-    if (!['chu_tro', 'admin'].includes(roleName)) {
+    // API quản lý bài cho phép chủ trọ, nhân viên và admin.
+    if (!['chu_tro', 'nhan_vien', 'admin'].includes(roleName)) {
       throw new AppError(
-        'Chỉ tài khoản vai trò chu_tro (hoặc admin) mới được đăng tin',
+        'Chỉ tài khoản vai trò chu_tro, nhan_vien hoặc admin mới được đăng tin',
         403,
       );
     }

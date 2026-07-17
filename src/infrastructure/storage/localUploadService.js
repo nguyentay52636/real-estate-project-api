@@ -4,7 +4,8 @@ import fs from 'fs';
 import { getDirname } from '#shared/utils/esm.js';
 const dirname = getDirname(import.meta.url);
 
-const ROOT_DIR = path.join(dirname, '..');
+// src/infrastructure/storage → project root (chứa folder images/ phục vụ static)
+const ROOT_DIR = path.join(dirname, '../../..');
 const IMAGES_DIR = path.join(ROOT_DIR, 'images');
 
 function sanitizeFolder(folder = 'uploads') {
@@ -33,6 +34,22 @@ function toRelativePath(folder, filename) {
   return `images/${folder}/${filename}`;
 }
 
+/** Lưu buffer ảnh vào images/<folder>/ (dùng khi fallback từ Cloudinary). */
+function saveBufferLocal(buffer, originalName, folder = 'uploads') {
+  const { dir, safeFolder } = getLocalDir(folder);
+  const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+  const ext = path.extname(originalName || '') || '.jpg';
+  const filename = `${uniqueSuffix}${ext}`;
+  const fullPath = path.join(dir, filename);
+  fs.writeFileSync(fullPath, buffer);
+  return {
+    filename,
+    folder: safeFolder,
+    url: toPublicUrl(safeFolder, filename),
+    path: toRelativePath(safeFolder, filename),
+  };
+}
+
 function deleteLocalFile(filePath) {
   if (!filePath) return false;
 
@@ -46,5 +63,19 @@ function deleteLocalFile(filePath) {
   return true;
 }
 
-export { sanitizeFolder, getLocalDir, toPublicUrl, toRelativePath, deleteLocalFile };
-export default { sanitizeFolder, getLocalDir, toPublicUrl, toRelativePath, deleteLocalFile };
+export {
+  sanitizeFolder,
+  getLocalDir,
+  toPublicUrl,
+  toRelativePath,
+  saveBufferLocal,
+  deleteLocalFile,
+};
+export default {
+  sanitizeFolder,
+  getLocalDir,
+  toPublicUrl,
+  toRelativePath,
+  saveBufferLocal,
+  deleteLocalFile,
+};

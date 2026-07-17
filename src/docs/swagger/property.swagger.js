@@ -65,7 +65,8 @@
  *           type: number
  *         trangThai:
  *           type: string
- *           enum: [dang_hoat_dong, da_cho_thue, da_ban]
+ *           enum: [cho_duyet, dang_hoat_dong, da_cho_thue, da_ban]
+ *           description: cho_duyet = chờ admin duyệt; dang_hoat_dong = đang hiển thị
  *         nguoiDungId:
  *           description: ID hoặc object người đăng (populate)
  *           oneOf:
@@ -172,117 +173,6 @@
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Property'
- *       500:
- *         description: Lỗi server
- *   post:
- *     summary: Tạo mới bất động sản (chỉ cần nguoiDungId + dữ liệu tin)
- *     description: |
- *       Body **không** gửi object `chuNha`. Chỉ gửi `nguoiDungId` (string).
- *       Server kiểm tra user tồn tại và vai trò `chu_tro` hoặc `admin`,
- *       rồi trả response kèm `chuNha` đã populate.
- *     tags: [Property]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - tieuDe
- *               - moTa
- *               - loaiBds
- *               - loaiGiaoDich
- *               - gia
- *               - dienTich
- *               - diaChi
- *               - tinhThanh
- *               - quanHuyen
- *               - anhDaiDien
- *               - phongNgu
- *               - phongTam
- *               - choDauXe
- *               - nguoiDungId
- *             properties:
- *               tieuDe:
- *                 type: string
- *               moTa:
- *                 type: string
- *               loaiBds:
- *                 type: string
- *                 enum: [can_ho, nha_nguyen_can, studio, penthouse]
- *               loaiGiaoDich:
- *                 type: string
- *                 enum: [ban, cho_thue]
- *                 description: `ban` hoặc `cho_thue`
- *               gia:
- *                 type: number
- *               dienTich:
- *                 type: number
- *               diaChi:
- *                 type: string
- *               tinhThanh:
- *                 type: string
- *               quanHuyen:
- *                 type: string
- *               anhDaiDien:
- *                 type: string
- *               gallery:
- *                 type: array
- *                 items:
- *                   type: string
- *               phongNgu:
- *                 type: number
- *               phongTam:
- *                 type: number
- *               choDauXe:
- *                 type: number
- *               trangThai:
- *                 type: string
- *                 enum: [dang_hoat_dong, da_cho_thue, da_ban]
- *               nguoiDungId:
- *                 type: string
- *                 description: ID user chủ đăng (role chu_tro hoặc admin)
- *               badge:
- *                 type: string
- *               subtitle:
- *                 type: string
- *               features:
- *                 type: array
- *                 items:
- *                   type: object
- *               overlay:
- *                 type: object
- *               colorGradient:
- *                 type: string
- *               thongTinChiTiet:
- *                 type: object
- *                 description: Tầng, hướng, ban công, nội thất
- *                 properties:
- *                   tang:
- *                     type: string
- *                     example: Tầng 18
- *                   huong:
- *                     type: string
- *                     example: Đông Nam
- *                   banCong:
- *                     type: boolean
- *                     example: true
- *                   noiThat:
- *                     type: string
- *                     example: Full nội thất cao cấp
- *     responses:
- *       201:
- *         description: Đã tạo thành công — response có thêm chuNha
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Property'
- *       400:
- *         description: Thiếu nguoiDungId hoặc dữ liệu không hợp lệ
- *       403:
- *         description: Sai vai trò / tài khoản bị khóa
- *       404:
- *         description: Không tìm thấy user
  *       500:
  *         description: Lỗi server
  */
@@ -411,52 +301,6 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Property'
- *       404:
- *         description: Không tìm thấy
- *       500:
- *         description: Lỗi server
- *   put:
- *     summary: Cập nhật thông tin bất động sản
- *     tags: [Property]
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: ID bất động sản
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Property'
- *     responses:
- *       200:
- *         description: Cập nhật thành công
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Property'
- *       400:
- *         description: Dữ liệu không hợp lệ
- *       404:
- *         description: Không tìm thấy
- *       500:
- *         description: Lỗi server
- *   delete:
- *     summary: Xóa bất động sản
- *     tags: [Property]
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: ID bất động sản
- *     responses:
- *       200:
- *         description: Xóa thành công
  *       404:
  *         description: Không tìm thấy
  *       500:

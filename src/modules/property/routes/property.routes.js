@@ -23,12 +23,4 @@ router.get("/:id/related", propertyController.getRelatedProperties);
 
 router.get("/:id", propertyController.getPropertyById);
 
-router.post("/", propertyController.createProperty);
-
-router.put("/:id", propertyController.updateProperty);
-router.patch("/:id/status", propertyController.updatePropertyStatus);
-
-// DELETE /api/property/:id        — Xóa bất động sản
-router.delete("/:id", propertyController.deleteProperty);
-
 export default router;

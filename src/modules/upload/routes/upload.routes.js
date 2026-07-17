@@ -104,4 +104,49 @@ router.post(
   uploadController.uploadCloudinary
 );
 
+/**
+ * @swagger
+ * /api/upload:
+ *   post:
+ *     summary: Upload ảnh (ưu tiên Cloudinary, fallback local)
+ *     description: |
+ *       Thử Cloudinary trước. Nếu thiếu env / không kết nối được thì lưu vào `images/`.
+ *       Response có `storage: cloudinary | local` để FE biết nguồn URL.
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: folder
+ *         schema:
+ *           type: string
+ *           default: properties
+ *         description: Folder Cloudinary hoặc thư mục con trong images/
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Upload thành công (cloudinary hoặc local)
+ *       400:
+ *         description: Thiếu file hoặc định dạng không hợp lệ
+ *       401:
+ *         description: Chưa đăng nhập
+ */
+router.post(
+  '/',
+  middlewareController.verifyToken,
+  uploadMemory.single('file'),
+  handleUploadError,
+  uploadController.uploadAuto
+);
+
 export default router;

@@ -34,8 +34,9 @@ const BDSchema = new mongoose.Schema(
 
     trangThai: {
       type: String,
-      enum: ["dang_hoat_dong", "da_cho_thue", "da_ban"],
-      default: "dang_hoat_dong",
+      enum: ["cho_duyet", "dang_hoat_dong", "da_cho_thue", "da_ban"],
+      default: "cho_duyet",
+      index: true,
     },
 
     nguoiDungId: {
