@@ -1,5 +1,11 @@
 import '#config/env.js';
+import dns from 'dns';
 import mongoose from 'mongoose';
+
+// Fix: Windows DNS mặc định không resolve SRV record của MongoDB Atlas
+// Dùng Google DNS (8.8.8.8) thay thế
+dns.setDefaultResultOrder('ipv4first');
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 
 const connectDB = async () => {
   const uri = process.env.DB_URL;
