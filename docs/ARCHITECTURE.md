@@ -25,6 +25,7 @@ real-estate-project-api/
     │   ├── auth/            # Login, Facebook, JWT validation
     │   ├── users/           # User, Role, Employee, Customer, Owner
     │   ├── property/        # BĐS, Review, Favorite, Viewing
+    │   ├── contact/         # Form hỗ trợ (LienHe)
     │   ├── chat/            # Room, Message, Notification
     │   ├── ai/              # AI chat, handoff, CRM knowledge
     │   ├── upload/
@@ -39,6 +40,7 @@ real-estate-project-api/
 | `auth` | Đăng ký / đăng nhập / OAuth / token |
 | `users` | Hồ sơ, vai trò (người thuê, chủ nhà, NV, admin) |
 | `property` | Tin đăng, yêu thích, đánh giá, lịch xem nhà |
+| `contact` | Form hỗ trợ / liên hệ (LienHe) — public gửi, admin/NV quản lý |
 | `chat` | Chat realtime giữa các bên |
 | `ai` | Tư vấn AI + chuyển nhân viên (handoff) |
 | `upload` | Ảnh / media |

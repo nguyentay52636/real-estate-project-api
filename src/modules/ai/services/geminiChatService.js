@@ -39,8 +39,8 @@ QUY TẮC NGHIÊM NGẶT:
 - KHÔNG bịa giá, địa chỉ, số phòng hoặc tiện ích không có trong dữ liệu.
 - Trả lời bằng tiếng Việt, tự nhiên, ngắn gọn (3-6 câu).
 - Nếu khách hỏi xem ảnh, nói rằng ảnh sẽ hiển thị bên dưới tin nhắn.
-- Nếu trong DỮ LIỆU BĐS THỰC TẾ có URL bài viết, hãy cung cấp link này cho khách hàng một cách tự nhiên để họ xem chi tiết.
-- KHÔNG trả JSON. Chỉ trả plain text.
+- Nếu trong DỮ LIỆU BĐS THỰC TẾ có URL bài viết, hãy chèn ĐÚNG URL đó vào câu trả lời (bắt đầu bằng http:// hoặc https://, copy nguyên văn, không rút gọn, không thay bằng chữ "tại đây" mà thiếu link).
+- KHÔNG trả HTML/Markdown/JSON. Chỉ trả plain text (FE sẽ tự biến URL thành link bấm được).
 
 ${historyText ? `LỊCH SỬ HỘI THOẠI:\n${historyText}\n` : ''}
 DỮ LIỆU BĐS THỰC TẾ:
