@@ -112,7 +112,7 @@ describe('propertyPostService.getPosts', () => {
 
     assert.deepEqual(getPropertiesByUser.mock.calls[0].arguments, [
       'owner-1',
-      { page: 2 },
+      { page: 2, public: 'false' },
     ]);
   });
 
@@ -124,5 +124,34 @@ describe('propertyPostService.getPosts', () => {
 
     await service.getPosts({ id: 'staff-1', vaiTro: 'nhan_vien' }, {});
     assert.equal(getAllProperties.mock.callCount(), 1);
+  });
+});
+
+describe('propertyPostService.getPostsByUserId', () => {
+  it('rejects chu_tro viewing another user posts', async () => {
+    const service = createPropertyPostService({ propertyService: {} });
+    await assert.rejects(
+      () =>
+        service.getPostsByUserId('other', { id: 'owner-1', vaiTro: 'chu_tro' }, {}),
+      (err) => err instanceof AppError && err.statusCode === 403,
+    );
+  });
+
+  it('allows chu_tro viewing own posts by userId', async () => {
+    const getPropertiesByUser = mock.fn(async () => ({ data: [{ _id: 'p1' }], pagination: {} }));
+    const service = createPropertyPostService({ propertyService: { getPropertiesByUser } });
+    const result = await service.getPostsByUserId(
+      'owner-1',
+      { id: 'owner-1', vaiTro: 'chu_tro' },
+      {},
+    );
+    assert.equal(result.data.length, 1);
+  });
+
+  it('allows admin viewing any user posts', async () => {
+    const getPropertiesByUser = mock.fn(async () => ({ data: [], pagination: {} }));
+    const service = createPropertyPostService({ propertyService: { getPropertiesByUser } });
+    await service.getPostsByUserId('any-user', { id: 'admin-1', vaiTro: 'admin' }, {});
+    assert.equal(getPropertiesByUser.mock.calls[0].arguments[0], 'any-user');
   });
 });

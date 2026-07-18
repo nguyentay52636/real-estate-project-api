@@ -283,6 +283,56 @@
 
 /**
  * @swagger
+ * /api/property/user/{userId}:
+ *   get:
+ *     summary: Lấy danh sách bài đăng theo ID người dùng (public)
+ *     description: |
+ *       Mặc định chỉ trả tin `dang_hoat_dong` (profile công khai).
+ *       Gửi `public=false` hoặc `trangThai=...` để lọc khác.
+ *     tags: [Property]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID người dùng (chủ đăng)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: loaiGiaoDich
+ *         schema:
+ *           type: string
+ *           enum: [ban, cho_thue]
+ *       - in: query
+ *         name: trangThai
+ *         schema:
+ *           type: string
+ *           enum: [cho_duyet, dang_hoat_dong, da_ban, da_cho_thue]
+ *       - in: query
+ *         name: public
+ *         schema:
+ *           type: string
+ *           enum: ["true", "false"]
+ *           default: "true"
+ *         description: false = lấy mọi trạng thái của user
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *       404:
+ *         description: Không tìm thấy người dùng
+ */
+
+/**
+ * @swagger
  * /api/property/{id}:
  *   get:
  *     summary: Lấy thông tin bất động sản theo ID

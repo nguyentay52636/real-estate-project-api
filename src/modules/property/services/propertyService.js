@@ -229,8 +229,63 @@ export function createPropertyService(deps = {}) {
   }
 
   async function getPropertiesByUser(userId, query = {}) {
+    if (!userId) throw new AppError('Thiếu userId', 400);
+
+    const user = await User.findById(userId).select('_id');
+    if (!user) throw new AppError('Không tìm thấy người dùng', 404);
+
+    const {
+      loaiBds,
+      loaiGiaoDich,
+      trangThai,
+      tinhThanh,
+      quanHuyen,
+      giaMin,
+      giaMax,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      // public=true (mặc định): chỉ tin đang hiển thị; public=false: mọi trạng thái
+      public: publicOnly,
+    } = query;
+
     const filter = { nguoiDungId: userId };
-    const { data, pagination } = await listWithPagination(filter, query);
+
+    // Public profile: mặc định chỉ dang_hoat_dong (trừ khi client gửi trangThai hoặc public=false)
+    const wantAll =
+      publicOnly === 'false' || publicOnly === false || publicOnly === '0';
+    if (trangThai) {
+      filter.trangThai = trangThai;
+    } else if (!wantAll) {
+      filter.trangThai = 'dang_hoat_dong';
+    }
+
+    if (loaiBds) filter.loaiBds = loaiBds;
+    if (loaiGiaoDich) {
+      if (!VALID_TRANSACTION_TYPES.includes(loaiGiaoDich)) {
+        throw new AppError(
+          `Loại giao dịch không hợp lệ. Chỉ chấp nhận: ${VALID_TRANSACTION_TYPES.join(', ')}`,
+          400,
+        );
+      }
+      filter.loaiGiaoDich = loaiGiaoDich;
+    }
+    if (tinhThanh) filter.tinhThanh = { $regex: new RegExp(tinhThanh, 'i') };
+    if (quanHuyen) filter.quanHuyen = { $regex: new RegExp(quanHuyen, 'i') };
+    if (giaMin || giaMax) {
+      filter.gia = {};
+      if (giaMin) filter.gia.$gte = Number(giaMin);
+      if (giaMax) filter.gia.$lte = Number(giaMax);
+    }
+    if (search) {
+      filter.$or = [
+        { tieuDe: { $regex: new RegExp(search, 'i') } },
+        { diaChi: { $regex: new RegExp(search, 'i') } },
+      ];
+    }
+
+    const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+    const { data, pagination } = await listWithPagination(filter, query, sortOptions);
     return { data, pagination };
   }
 

@@ -27,7 +27,12 @@ async function verifyCloudinaryConnection() {
     await cloudinary.api.ping();
     return { ok: true };
   } catch (error) {
-    const message = error?.error?.message || error?.message || 'Không kết nối được Cloudinary';
+    const raw = error?.error?.message || error?.message || 'Không kết nối được Cloudinary';
+    // cloud_name mismatch = cloud_name không khớp API key/secret trên dashboard
+    const message =
+      /cloud_name mismatch/i.test(raw)
+        ? 'Cloudinary cloud_name không khớp API key/secret — kiểm tra lại CLOUDINARY_* trong .env (Dashboard → API Keys)'
+        : raw;
     return { ok: false, message };
   }
 }

@@ -17,6 +17,7 @@ import uploadRouter from '#modules/upload/routes/upload.routes.js';
 import crmKnowledgeRouter from '#modules/ai/routes/crmKnowledge.routes.js';
 import crmKnowledgeCatalogRouter from '#modules/ai/routes/crmKnowledgeCatalog.routes.js';
 import propertyPostRouter from '#modules/property/routes/propertyPost.routes.js';
+import leadRouter from '#modules/property/routes/lead.routes.js';
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.use("/user", userRouter);
 router.use("/auth", authRouter);
 router.use("/property", propertyRouter);
 router.use("/property-post", propertyPostRouter);
+router.use("/lead", leadRouter);
 router.use("/review", reviewRouter);
 router.use("/viewing", viewingsRouter);
 router.use("/employee", employeeRouter);

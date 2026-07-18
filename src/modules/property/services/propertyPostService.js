@@ -37,7 +37,14 @@ export function createPropertyPostService(deps = {}) {
     if (PRIVILEGED_ROLES.includes(actor.vaiTro)) {
       return propertyService.getAllProperties(query);
     }
-    return propertyService.getPropertiesByUser(actor.id, query);
+    return propertyService.getPropertiesByUser(actor.id, { ...query, public: 'false' });
+  }
+
+  async function getPostsByUserId(userId, actor, query = {}) {
+    if (!PRIVILEGED_ROLES.includes(actor.vaiTro) && String(userId) !== String(actor.id)) {
+      throw new AppError('Bạn chỉ được xem danh sách bài đăng của chính mình', 403);
+    }
+    return propertyService.getPropertiesByUser(userId, { ...query, public: 'false' });
   }
 
   async function getPostById(id, actor) {
@@ -75,6 +82,7 @@ export function createPropertyPostService(deps = {}) {
 
   return {
     getPosts,
+    getPostsByUserId,
     getPostById,
     createPost,
     updatePost,

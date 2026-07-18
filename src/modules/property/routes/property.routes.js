@@ -1,6 +1,8 @@
 // routes/property.js
 import express from 'express';
 import propertyController from '#modules/property/controllers/propertyController.js';
+import behaviorTrackingController from '#modules/property/controllers/behaviorTrackingController.js';
+import { optionalAuth } from '#shared/middleware/optionalAuth.js';
 
 const router = express.Router();
 
@@ -14,6 +16,13 @@ router.get("/district/:district", propertyController.getPropertiesByDistrict);
 
 // GET /api/property/user/:userId  — Lấy theo chủ sở hữu
 router.get("/user/:userId", propertyController.getPropertiesByUser);
+
+// POST /api/property/:id/behavior — ghi nhận hành vi (guest cần sessionId)
+router.post(
+  "/:id/behavior",
+  optionalAuth,
+  behaviorTrackingController.trackBehavior,
+);
 
 // GET /api/property/:id/author — Tác giả (người đăng bài) + vai trò
 router.get("/:id/author", propertyController.getPropertyAuthor);

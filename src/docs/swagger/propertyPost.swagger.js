@@ -109,6 +109,46 @@
 
 /**
  * @swagger
+ * /api/property-post/user/{userId}:
+ *   get:
+ *     summary: Lấy danh sách bài đăng theo userId (dashboard)
+ *     description: |
+ *       chu_tro chỉ xem được userId = chính mình.
+ *       admin / nhan_vien xem được mọi user.
+ *       Trả cả tin cho_duyet (public=false).
+ *     tags: [PropertyPost]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: trangThai
+ *         schema:
+ *           type: string
+ *           enum: [cho_duyet, dang_hoat_dong, da_ban, da_cho_thue]
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *       403:
+ *         description: Không có quyền xem bài của user khác
+ *       404:
+ *         description: Không tìm thấy người dùng
+ */
+
+/**
+ * @swagger
  * /api/property-post/{id}:
  *   get:
  *     summary: Lấy chi tiết bài được phép quản lý

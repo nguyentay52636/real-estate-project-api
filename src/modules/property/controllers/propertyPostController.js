@@ -11,6 +11,19 @@ const propertyPostController = {
     });
   }),
 
+  getPostsByUserId: asyncHandler(async (req, res) => {
+    const { data, pagination } = await propertyPostService.getPostsByUserId(
+      req.params.userId,
+      req.authUser,
+      req.query,
+    );
+    return res.status(200).json({
+      message: 'Lấy danh sách bài đăng theo người dùng thành công',
+      data,
+      pagination,
+    });
+  }),
+
   getPostById: asyncHandler(async (req, res) => {
     const data = await propertyPostService.getPostById(req.params.id, req.authUser);
     return res.status(200).json({
