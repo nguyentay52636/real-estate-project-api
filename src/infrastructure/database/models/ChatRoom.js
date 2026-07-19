@@ -49,6 +49,28 @@ const PhongChatSchema = new mongoose.Schema({
     ref: 'TinNhan',
     default: null,
   },
+  /** Gắn ngược về ChatTicket khi phòng được tạo từ luồng AI handoff — cho phép
+   * trang quản lý chat biết phòng nào là ticket hỗ trợ. null với phòng chat
+   * thường (không qua handoff). Giữ nguyên vĩnh viễn kể cả sau khi hoàn tất —
+   * xem `handoffResolvedAt` để biết còn mở hay đã xong, để UI đổi nút "Hoàn tất"
+   * thành "Đã hoàn tất" thay vì mất dấu vết đây từng là ticket hỗ trợ. */
+  handoffToken: {
+    type: String,
+    default: null,
+    index: true,
+  },
+  handoffResolvedAt: {
+    type: Date,
+    default: null,
+  },
+  /** Danh sách userId đã "ẩn" phòng này khỏi danh sách hội thoại của riêng họ
+   * (soft-delete theo từng người). Dữ liệu phòng/tin nhắn vẫn giữ nguyên cho
+   * (các) thành viên còn lại — không phải xóa thật. */
+  anDoiVoi: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'nguoiDung',
+    default: [],
+  }],
 }, {
   timestamps: true,
   versionKey: false,
