@@ -73,21 +73,8 @@ export const sendAIMessage = async (req, res) => {
 
     const result = await processUserMessage(message, handoffInput.sessionId, conversationHistory);
 
-    if (result.requiresHandOff && handoffInput.userId) {
-      const { ticket } = await createHandoffTicket({
-        sessionId: result.sessionId || handoffInput.sessionId,
-        userId: handoffInput.userId,
-        reason: result.handOffReason || handoffInput.reason,
-        conversationHistory: [
-          ...handoffInput.conversationHistory,
-          { role: 'user', message, timestamp: new Date().toISOString() },
-        ],
-        customerName: handoffInput.customerName,
-      });
-      result.handoffToken = ticket.handoffToken;
-      result.ticketId = ticket._id;
-      result.status = ticket.trangThai;
-    }
+    // Không tự tạo ticket ngay — chỉ gợi ý bằng tin nhắn + nút "Kết nối với nhân viên".
+    // Ticket thật chỉ được tạo khi khách chủ động bấm nút đó (POST /ai-chat/handoff).
 
     return res.status(200).json(result);
 

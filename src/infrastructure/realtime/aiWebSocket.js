@@ -1,7 +1,6 @@
 import logger from '#shared/utils/logger.js';
 import { WebSocketServer } from 'ws';
 import { processUserMessage } from '#modules/ai/controllers/aiChatController.js';
-import { createHandoffTicket } from '#modules/ai/services/handoffService.js';
 import { hasEmbeddingProvider } from '#modules/ai/services/embeddingService.js';
 import { hasChatProvider } from '#modules/ai/services/geminiChatService.js';
 
@@ -79,7 +78,7 @@ function parseIncomingPayload(raw) {
   return { kind: 'unsupported', type: type || 'unknown', payload };
 }
 
-async function handleChatMessage(ws, { message, sessionId, userId, customerName, conversationHistory }) {
+async function handleChatMessage(ws, { message, sessionId, conversationHistory }) {
   if (!message || !String(message).trim()) {
     ws.send(JSON.stringify({
       type: 'error',
@@ -108,26 +107,9 @@ async function handleChatMessage(ws, { message, sessionId, userId, customerName,
     const result = await processUserMessage(message, sessionId, conversationHistory);
     const responseType = result.requiresHandOff ? 'handoff' : 'ai_response';
 
-    if (result.requiresHandOff) {
-      try {
-        const { ticket } = await createHandoffTicket({
-          sessionId: result.sessionId,
-          userId,
-          reason: result.handOffReason,
-          conversationHistory: [
-            ...conversationHistory,
-            { role: 'user', message, timestamp: new Date().toISOString() },
-          ],
-          customerName,
-        });
-
-        result.handoffToken = ticket.handoffToken;
-        result.ticketId = ticket._id;
-        result.status = ticket.trangThai;
-      } catch (ticketError) {
-        logger.error('[AI WS] Create handoff ticket failed:', ticketError.message);
-      }
-    }
+    // Không tự tạo ticket ngay ở đây — chỉ gợi ý bằng tin nhắn + nút "Kết nối với nhân viên".
+    // Ticket thật chỉ được tạo khi khách chủ động bấm nút đó (gọi POST /ai-chat/handoff),
+    // tránh việc nhân viên nhận thông báo cho những yêu cầu khách chưa xác nhận.
 
     ws.send(JSON.stringify({
       type: responseType,
