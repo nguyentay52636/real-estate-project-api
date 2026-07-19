@@ -22,6 +22,7 @@
     "test:users": "node --test tests/unit/users/**/*.test.js",
     "test:chat": "node --test tests/unit/chat/**/*.test.js",
     "seed:crm": "node scripts/seed-crm-knowledge.js",
+    "backfill:embeddings": "node scripts/backfill-embeddings.js",
     "test:crm-ai": "node scripts/test-crm-ai-pipeline.js",
     "setup:env": "node -e \"import fs from 'fs';if(!fs.existsSync('.env')&&fs.existsSync('.env.example')){fs.copyFileSync('.env.example','.env');console.log('Created .env from .env.example');}else{console.log('.env already exists or .env.example missing');}\""
   },

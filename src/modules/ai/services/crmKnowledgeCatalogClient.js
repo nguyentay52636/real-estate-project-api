@@ -4,6 +4,7 @@ import { getAllActive } from './crmKnowledgeService.js';
 const CACHE_TTL_MS = parseInt(process.env.CRM_CATALOG_CACHE_MS || '30000', 10);
 
 let cache = { items: null, fetchedAt: 0 };
+let embeddingCache = { items: null, fetchedAt: 0 };
 
 function getCatalogApiUrl() {
   const base = (
@@ -17,6 +18,22 @@ function getCatalogApiUrl() {
 
 function clearCatalogCache() {
   cache = { items: null, fetchedAt: 0 };
+  embeddingCache = { items: null, fetchedAt: 0 };
+}
+
+/**
+ * Catalog kèm embedding — gọi DB trực tiếp (không qua HTTP catalog công khai,
+ * vốn luôn strip embedding) để dùng cho semantic search nội bộ.
+ */
+async function fetchCatalogWithEmbeddings({ bypassCache = false } = {}) {
+  const now = Date.now();
+  if (!bypassCache && embeddingCache.items && now - embeddingCache.fetchedAt < CACHE_TTL_MS) {
+    return embeddingCache.items;
+  }
+
+  const items = await getAllActive({ includeEmbedding: true });
+  embeddingCache = { items, fetchedAt: now };
+  return items;
 }
 
 async function fetchCatalogFromApi({ bypassCache = false } = {}) {
@@ -53,5 +70,5 @@ async function fetchCatalogFromApi({ bypassCache = false } = {}) {
   }
 }
 
-export { fetchCatalogFromApi, getCatalogApiUrl, clearCatalogCache };
-export default { fetchCatalogFromApi, getCatalogApiUrl, clearCatalogCache };
+export { fetchCatalogFromApi, fetchCatalogWithEmbeddings, getCatalogApiUrl, clearCatalogCache };
+export default { fetchCatalogFromApi, fetchCatalogWithEmbeddings, getCatalogApiUrl, clearCatalogCache };
