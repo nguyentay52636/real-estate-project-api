@@ -4,11 +4,12 @@ import { createHandoffTicket,
   getHandoffStatus as fetchHandoffStatus,
   acceptHandoffTicket,
   getPendingTickets,
-  getActiveNhanVienUsers,
+  getActiveStaffUsers,
   formatTicketForClient,
-  isNhanVien,
+  isStaff,
   dismissHandoffTicket,
-  dismissAllHandoffNotifications, } from '#modules/ai/services/handoffService.js';
+  dismissAllHandoffNotifications,
+  resolveHandoffTicket, } from '#modules/ai/services/handoffService.js';
 import { processAdvisoryMessage } from '#modules/ai/services/aiAdvisoryPipeline.js';
 import { hasEmbeddingProvider } from '#modules/ai/services/embeddingService.js';
 import { hasChatProvider } from '#modules/ai/services/geminiChatService.js';
@@ -113,11 +114,11 @@ export const requestHandoff = async (req, res) => {
       });
     }
 
-    const employees = await getActiveNhanVienUsers();
+    const employees = await getActiveStaffUsers();
     if (employees.length === 0) {
       return res.status(503).json({
         success: false,
-        error: 'Hiện không có nhân viên (nhan_vien) trực tuyến để hỗ trợ',
+        error: 'Hiện không có nhân viên/quản trị nào trực tuyến để hỗ trợ',
       });
     }
 
@@ -173,8 +174,8 @@ export const acceptHandoff = async (req, res) => {
       return res.status(401).json({ success: false, error: 'Bạn chưa đăng nhập' });
     }
 
-    const agentIsNhanVien = await isNhanVien(agentId);
-    if (!agentIsNhanVien) {
+    const agentIsStaff = await isStaff(agentId);
+    if (!agentIsStaff) {
       return res.status(403).json({ success: false, error: 'Chỉ nhân viên mới có thể nhận ticket' });
     }
 
@@ -190,9 +191,9 @@ export const acceptHandoff = async (req, res) => {
 export const getPendingHandoffs = async (req, res) => {
   try {
     const agentId = req.user?.id;
-    const agentIsNhanVien = await isNhanVien(agentId);
+    const agentIsStaff = await isStaff(agentId);
 
-    if (!agentIsNhanVien) {
+    if (!agentIsStaff) {
       return res.status(403).json({ success: false, error: 'Chỉ nhân viên mới xem được danh sách ticket' });
     }
 
@@ -223,6 +224,26 @@ export const dismissHandoff = async (req, res) => {
     return res.status(200).json(result);
   } catch (error) {
     const status = error.message.includes('nhân viên') ? 403 : 500;
+    return res.status(status).json({ success: false, error: error.message });
+  }
+};
+
+export const resolveHandoff = async (req, res) => {
+  try {
+    const agentId = req.user?.id;
+    const { handoffToken } = req.params;
+
+    if (!agentId) {
+      return res.status(401).json({ success: false, error: 'Bạn chưa đăng nhập' });
+    }
+    if (!handoffToken) {
+      return res.status(400).json({ success: false, error: 'handoffToken là bắt buộc' });
+    }
+
+    const result = await resolveHandoffTicket(handoffToken, agentId);
+    return res.status(200).json(result);
+  } catch (error) {
+    const status = error.message.includes('nhân viên') ? 403 : 400;
     return res.status(status).json({ success: false, error: error.message });
   }
 };

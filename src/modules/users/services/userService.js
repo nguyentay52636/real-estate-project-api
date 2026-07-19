@@ -23,7 +23,7 @@ export function createUserService(deps = {}) {
   }
 
   async function getAllUser() {
-    return User.find().populate('vaiTro');
+    return User.find().select('-matKhau').populate('vaiTro');
   }
 
   async function getAllUsers() {
@@ -31,7 +31,7 @@ export function createUserService(deps = {}) {
   }
 
   async function getUserById(id) {
-    const user = await User.findById(id).populate('vaiTro');
+    const user = await User.findById(id).select('-matKhau').populate('vaiTro');
     if (!user) throw new AppError('User not found', 404);
     return user;
   }

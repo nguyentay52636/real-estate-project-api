@@ -1,6 +1,6 @@
 import NguoiDung from '#models/User.js';
 import logger from '#shared/utils/logger.js';
-import { getPendingTickets } from '#modules/ai/services/handoffService.js';
+import { getPendingTickets, STAFF_ROLE_NAMES } from '#modules/ai/services/handoffService.js';
 import { registerRoomHandlers } from './roomHandlers.js';
 import { registerMessageHandlers } from './messageHandlers.js';
 import { registerMemberHandlers } from './memberHandlers.js';
@@ -19,8 +19,8 @@ async function onConnection(socket, io, state) {
   socket.join(socket.user.id);
   state.addSocket(socket.id, socket.user.id);
 
-  if (socket.user.vaiTroTen === 'nhan_vien') {
-    socket.join('nhan_vien_online');
+  if (STAFF_ROLE_NAMES.includes(socket.user.vaiTroTen)) {
+    socket.join('staff_online');
     const pendingTickets = await getPendingTickets(socket.user.id);
     socket.emit('handoff:pendingList', {
       tickets: pendingTickets,

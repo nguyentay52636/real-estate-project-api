@@ -8,6 +8,7 @@ import { sendAIMessage,
   getPendingHandoffs,
   dismissHandoff,
   dismissAllHandoffs,
+  resolveHandoff,
   searchApartment, } from '#modules/ai/controllers/aiChatController.js';
 
 const router = express.Router();
@@ -23,6 +24,7 @@ router.delete('/handoff/dismiss-all', middlewareController.verifyToken, dismissA
 router.get('/handoff/:handoffToken/status', getHandoffStatus);
 router.delete('/handoff/:handoffToken/dismiss', middlewareController.verifyToken, dismissHandoff);
 router.post('/handoff/:handoffToken/accept', middlewareController.verifyToken, acceptHandoff);
+router.post('/handoff/:handoffToken/resolve', middlewareController.verifyToken, resolveHandoff);
 router.post('/human/send', sendHumanMessage);
 
 export default router;

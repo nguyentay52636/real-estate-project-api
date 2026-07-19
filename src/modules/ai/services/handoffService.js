@@ -6,33 +6,41 @@ import VaiTro from '#models/Role.js';
 import ThongBaoChat from '#models/ChatNotification.js';
 import { getIO } from '#infra/realtime/ioInstance.js';
 
-async function getNhanVienRoleId() {
-  const role = await VaiTro.findOne({ ten: 'nhan_vien' });
-  return role?._id || null;
+/** Các role được coi là "nhân viên hỗ trợ" cho luồng handoff — nhận thông báo ticket,
+ * xem/nhận/xử lý ticket. Khớp với ADMIN_PANEL_ROLES / STAFF_NOTIFICATION_ROLES phía frontend. */
+const STAFF_ROLE_NAMES = ['admin', 'nhan_vien'];
+
+async function getStaffRoleIds() {
+  const roles = await VaiTro.find({ ten: { $in: STAFF_ROLE_NAMES } }).select('_id');
+  return roles.map((r) => r._id);
 }
 
-async function getActiveNhanVienUsers() {
-  const roleId = await getNhanVienRoleId();
-  if (!roleId) return [];
+async function getActiveStaffUsers() {
+  const roleIds = await getStaffRoleIds();
+  if (!roleIds.length) return [];
 
   return NguoiDung.find({
-    vaiTro: roleId,
+    vaiTro: { $in: roleIds },
     trangThai: 'hoat_dong',
   }).select('ten email tenDangNhap anhDaiDien');
 }
 
-async function isNhanVien(userId) {
-  const roleId = await getNhanVienRoleId();
-  if (!roleId) return false;
+async function isStaff(userId) {
+  const roleIds = await getStaffRoleIds();
+  if (!roleIds.length) return false;
 
-  const user = await NguoiDung.findOne({ _id: userId, vaiTro: roleId, trangThai: 'hoat_dong' });
+  const user = await NguoiDung.findOne({ _id: userId, vaiTro: { $in: roleIds }, trangThai: 'hoat_dong' });
   return Boolean(user);
 }
 
 async function populateTicket(ticket) {
   return ChatTicket.findById(ticket._id)
     .populate('khachHangId', 'ten email tenDangNhap anhDaiDien')
-    .populate('nhanVienId', 'ten email tenDangNhap anhDaiDien')
+    .populate({
+      path: 'nhanVienId',
+      select: 'ten email tenDangNhap anhDaiDien vaiTro',
+      populate: { path: 'vaiTro', select: 'ten' },
+    })
     .populate('phongChatId', 'tenPhong loaiPhong');
 }
 
@@ -65,14 +73,14 @@ async function createHandoffTicket({ sessionId, userId, reason, conversationHist
   });
 
   const populated = await populateTicket(ticket);
-  await notifyNhanVienAboutTicket(populated);
+  await notifyStaffAboutTicket(populated);
 
   return { ticket: populated, isNew: true };
 }
 
-async function notifyNhanVienAboutTicket(ticket) {
+async function notifyStaffAboutTicket(ticket) {
   const io = getIO();
-  const employees = await getActiveNhanVienUsers();
+  const employees = await getActiveStaffUsers();
   const payload = {
     type: 'handoff:newTicket',
     ticket: formatTicketForClient(ticket),
@@ -100,7 +108,7 @@ async function notifyNhanVienAboutTicket(ticket) {
   }
 
   if (io) {
-    io.to('nhan_vien_online').emit('handoff:newTicket', payload);
+    io.to('staff_online').emit('handoff:newTicket', payload);
   }
 
   console.log(`📣 [Handoff] Notified ${employees.length} nhân viên for ticket ${ticket.handoffToken}`);
@@ -111,6 +119,16 @@ function formatTicketForClient(ticket) {
   const customerName =
     ticket.khachHangId?.ten || ticket.tenKhachHang || 'Khách hàng';
 
+  const agentId = ticket.nhanVienId?._id || ticket.nhanVienId || null;
+  const agentInfo = agentId
+    ? {
+        agentId,
+        agentName: ticket.nhanVienId?.ten || 'Nhân viên',
+        avatar: ticket.nhanVienId?.anhDaiDien,
+        agentRole: ticket.nhanVienId?.vaiTro?.ten || null,
+      }
+    : null;
+
   return {
     ticketId: ticket._id,
     handoffToken: ticket.handoffToken,
@@ -118,6 +136,7 @@ function formatTicketForClient(ticket) {
     status: ticket.trangThai,
     reason: ticket.lyDo,
     message: ticket.lyDo,
+    agentInfo,
     userId: customerId
       ? {
           _id: customerId,
@@ -142,7 +161,11 @@ function formatTicketForClient(ticket) {
 async function getHandoffStatus(handoffToken) {
   const ticket = await ChatTicket.findOne({ handoffToken })
     .populate('khachHangId', 'ten email anhDaiDien')
-    .populate('nhanVienId', 'ten email anhDaiDien')
+    .populate({
+      path: 'nhanVienId',
+      select: 'ten email anhDaiDien vaiTro',
+      populate: { path: 'vaiTro', select: 'ten' },
+    })
     .populate('phongChatId', 'tenPhong loaiPhong');
 
   if (!ticket) {
@@ -162,6 +185,7 @@ async function getHandoffStatus(handoffToken) {
           agentId: ticket.nhanVienId._id,
           agentName: ticket.nhanVienId.ten,
           avatar: ticket.nhanVienId.anhDaiDien,
+          agentRole: ticket.nhanVienId.vaiTro?.ten || null,
         }
       : null,
     roomId: ticket.phongChatId?._id || ticket.phongChatId || null,
@@ -178,22 +202,31 @@ async function getHandoffStatus(handoffToken) {
   };
 }
 
+/** Trả về ticket 'pending' (chờ nhận) + 'active' (đang xử lý bởi ai đó) — để mọi
+ * nhân viên/admin online đều nhìn thấy trạng thái "đang xử lý bởi X" thay vì ticket
+ * biến mất hoàn toàn khỏi danh sách của người không nhận. Ticket chỉ rời danh sách
+ * khi được đánh dấu 'resolved' (xem resolveHandoffTicket). */
 async function getPendingTickets(agentId = null) {
-  const filter = { trangThai: 'pending' };
+  const filter = { trangThai: { $in: ['pending', 'active'] } };
   if (agentId) {
     filter.boQuaBoi = { $nin: [agentId] };
   }
 
   const tickets = await ChatTicket.find(filter)
     .sort({ createdAt: 1 })
-    .populate('khachHangId', 'ten email anhDaiDien');
+    .populate('khachHangId', 'ten email anhDaiDien')
+    .populate({
+      path: 'nhanVienId',
+      select: 'ten anhDaiDien vaiTro',
+      populate: { path: 'vaiTro', select: 'ten' },
+    });
 
   return tickets.map(formatTicketForClient);
 }
 
 async function dismissHandoffTicket(handoffToken, agentId) {
-  const agentIsNhanVienUser = await isNhanVien(agentId);
-  if (!agentIsNhanVienUser) {
+  const agentIsStaff = await isStaff(agentId);
+  if (!agentIsStaff) {
     throw new Error('Chỉ nhân viên mới có thể xóa thông báo');
   }
 
@@ -231,8 +264,8 @@ async function dismissHandoffTicket(handoffToken, agentId) {
 }
 
 async function dismissAllHandoffNotifications(agentId) {
-  const agentIsNhanVienUser = await isNhanVien(agentId);
-  if (!agentIsNhanVienUser) {
+  const agentIsStaff = await isStaff(agentId);
+  if (!agentIsStaff) {
     throw new Error('Chỉ nhân viên mới có thể xóa thông báo');
   }
 
@@ -265,8 +298,8 @@ async function dismissAllHandoffNotifications(agentId) {
 }
 
 async function acceptHandoffTicket(handoffToken, agentId) {
-  const agentIsNhanVien = await isNhanVien(agentId);
-  if (!agentIsNhanVien) {
+  const agentIsStaff = await isStaff(agentId);
+  if (!agentIsStaff) {
     throw new Error('Chỉ nhân viên mới có thể nhận ticket');
   }
 
@@ -287,7 +320,9 @@ async function acceptHandoffTicket(handoffToken, agentId) {
   }
 
   const customerId = ticket.khachHangId._id || ticket.khachHangId;
-  const agent = await NguoiDung.findById(agentId).select('ten anhDaiDien');
+  const agent = await NguoiDung.findById(agentId)
+    .select('ten anhDaiDien vaiTro')
+    .populate('vaiTro', 'ten');
 
   const room = await PhongChat.create({
     tenPhong: `Hỗ trợ ${ticket.tenKhachHang}`,
@@ -369,18 +404,23 @@ async function acceptHandoffTicket(handoffToken, agentId) {
       agentId,
       agentName: agent.ten,
       avatar: agent.anhDaiDien,
+      agentRole: agent.vaiTro?.ten || null,
     },
     timestamp: new Date().toISOString(),
   };
+
+  const populatedTicket = await populateTicket(ticket);
 
   const io = getIO();
   if (io) {
     io.to(customerId.toString()).emit('handoff:accepted', acceptedPayload);
     io.to(agentId.toString()).emit('handoff:accepted', acceptedPayload);
     io.to(`handoff:${handoffToken}`).emit('handoff:accepted', acceptedPayload);
-    io.to('nhan_vien_online').emit('handoff:ticketRemoved', {
-      handoffToken,
-      acceptedBy: agentId,
+    // Broadcast cho MỌI staff (kể cả người vừa nhận) — client tự lọc bỏ ticket của
+    // chính mình vì đã xử lý qua 'handoff:acceptSuccess'. Staff khác cập nhật ticket
+    // sang trạng thái "đang xử lý bởi ..." thay vì ticket biến mất khỏi danh sách.
+    io.to('staff_online').emit('handoff:ticketAccepted', {
+      ticket: formatTicketForClient(populatedTicket),
       timestamp: new Date().toISOString(),
     });
   }
@@ -422,5 +462,42 @@ async function clearHandoffNotifications(handoffToken, acceptedByAgentId) {
   }
 }
 
-export { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveNhanVienUsers, isNhanVien, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications };
-export default { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveNhanVienUsers, isNhanVien, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications };
+/** Đánh dấu ticket đã xử lý xong — dọn khỏi danh sách "đang xử lý" của mọi staff.
+ * Bất kỳ staff nào (không chỉ người đã nhận) cũng có thể hoàn tất, để tránh ticket
+ * bị kẹt mãi nếu người nhận quên đóng. */
+async function resolveHandoffTicket(handoffToken, agentId) {
+  const agentIsStaff = await isStaff(agentId);
+  if (!agentIsStaff) {
+    throw new Error('Chỉ nhân viên mới có thể hoàn tất ticket');
+  }
+
+  const ticket = await ChatTicket.findOneAndUpdate(
+    { handoffToken, trangThai: { $in: ['pending', 'active'] } },
+    { $set: { trangThai: 'resolved' } },
+    { new: true },
+  );
+
+  if (!ticket) {
+    throw new Error('Ticket không tồn tại hoặc đã được hoàn tất');
+  }
+
+  const io = getIO();
+  if (io) {
+    io.to('staff_online').emit('handoff:ticketResolved', {
+      handoffToken,
+      resolvedBy: agentId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  console.log(`🏁 [Handoff] Ticket ${handoffToken} resolved by ${agentId}`);
+
+  return {
+    success: true,
+    handoffToken,
+    message: 'Đã hoàn tất ticket',
+  };
+}
+
+export { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, STAFF_ROLE_NAMES };
+export default { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, STAFF_ROLE_NAMES };

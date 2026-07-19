@@ -6,8 +6,9 @@ import uploadMemory from '#modules/upload/middleware/uploadMemory.js';
 
 const router = express.Router();
 
-// GET /api/user - Get all users
-router.get("/", userController.getAllUser);
+// GET /api/user - Get all users (yêu cầu đăng nhập — trang admin và danh bạ chat
+// trong app đều chỉ gọi khi đã có phiên; không có lý do để mở công khai)
+router.get("/", middlewareController.verifyToken, userController.getAllUser);
 
 // GET /api/user/all - Get all users (dedicated endpoint)
 router.get("/all", userController.getAllUsers);
@@ -15,11 +16,13 @@ router.get("/all", userController.getAllUsers);
 // GET /api/user/:id - Get user by ID
 router.get("/:id", userController.getUserById);
 
-// POST /api/user - Create new user
-router.post("/", userController.createUser);
+// POST /api/user - Create new user (admin only — có thể gán bất kỳ vaiTro nào,
+// kể cả admin/nhan_vien, nên KHÔNG được để công khai như /auth/register)
+router.post("/", middlewareController.verifyAdmin, userController.createUser);
 
-// PUT /api/user/:id - Update user
-router.put("/:id", userController.updateUser);
+// PUT /api/user/:id - Update user (admin only — cùng lý do: cho phép đổi vaiTro
+// của bất kỳ tài khoản nào, nếu mở công khai thì tự nâng quyền chỉ bằng 1 request)
+router.put("/:id", middlewareController.verifyAdmin, userController.updateUser);
 
 // DELETE /api/user/:id (admin or self)
 router.delete(
