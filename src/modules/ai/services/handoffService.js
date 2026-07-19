@@ -87,6 +87,10 @@ async function notifyStaffAboutTicket(ticket) {
     timestamp: new Date().toISOString(),
   };
 
+  // Chỉ emit 'handoff:newTicket' qua room cá nhân từng nhân viên (đã join lúc connect,
+  // xem connectionHandlers.js) — KHÔNG broadcast thêm lần nữa qua room 'staff_online',
+  // vì bất kỳ nhân viên nào đang online cũng đã có mặt ở CẢ HAI room cùng lúc, dẫn tới
+  // nhận đúng 1 sự kiện nhưng bị gửi/hiện 2 lần trên UI.
   for (const employee of employees) {
     const notification = await ThongBaoChat.create({
       nguoiNhan: employee._id,
@@ -105,10 +109,6 @@ async function notifyStaffAboutTicket(ticket) {
       io.to(employee._id.toString()).emit('newNotification', populatedNotification);
       io.to(employee._id.toString()).emit('handoff:newTicket', payload);
     }
-  }
-
-  if (io) {
-    io.to('staff_online').emit('handoff:newTicket', payload);
   }
 
   console.log(`📣 [Handoff] Notified ${employees.length} nhân viên for ticket ${ticket.handoffToken}`);
@@ -334,6 +334,7 @@ async function acceptHandoffTicket(handoffToken, agentId) {
     nguoiTao: agentId,
     tinNhan: [],
     tinNhanGhim: [],
+    handoffToken,
   });
 
   const seededMessageIds = [];
@@ -481,6 +482,13 @@ async function resolveHandoffTicket(handoffToken, agentId) {
     throw new Error('Ticket không tồn tại hoặc đã được hoàn tất');
   }
 
+  // Đánh dấu đã hoàn tất trên phòng chat — GIỮ NGUYÊN handoffToken (để UI vẫn
+  // biết đây từng là ticket hỗ trợ, hiện nhãn "Đã hoàn tất" thay vì mất dấu vết
+  // hoàn toàn), chỉ set thêm mốc thời gian hoàn tất.
+  if (ticket.phongChatId) {
+    await PhongChat.findByIdAndUpdate(ticket.phongChatId, { handoffResolvedAt: new Date() });
+  }
+
   const io = getIO();
   if (io) {
     io.to('staff_online').emit('handoff:ticketResolved', {
@@ -488,6 +496,17 @@ async function resolveHandoffTicket(handoffToken, agentId) {
       resolvedBy: agentId,
       timestamp: new Date().toISOString(),
     });
+
+    // Báo cho khách qua room cá nhân của họ (mọi socket đã xác thực đều tự join
+    // room này lúc connect — xem connectionHandlers.js) — không phụ thuộc socket
+    // "chờ nhân viên" cũ, vì socket đó đã bị đóng ngay khi ticket được nhận.
+    if (ticket.khachHangId) {
+      io.to(ticket.khachHangId.toString()).emit('handoff:resolved', {
+        handoffToken,
+        roomId: ticket.phongChatId ? ticket.phongChatId.toString() : null,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   console.log(`🏁 [Handoff] Ticket ${handoffToken} resolved by ${agentId}`);

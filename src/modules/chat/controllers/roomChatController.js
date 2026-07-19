@@ -29,7 +29,11 @@ const getRoomsOfUser = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const rooms = await PhongChat.find({ 'thanhVien.nguoiDung': userId, 'thanhVien.trangThai': 'active' })
+    const rooms = await PhongChat.find({
+      'thanhVien.nguoiDung': userId,
+      'thanhVien.trangThai': 'active',
+      anDoiVoi: { $ne: userId },
+    })
       .populate({
         path: 'thanhVien.nguoiDung',
         select: 'ten anhDaiDien email tenDangNhap'
@@ -600,6 +604,34 @@ const addMemberToRoom = async (req, res) => {
   }
 };
 
+// Ẩn phòng chat khỏi danh sách của riêng người dùng (không xóa dữ liệu thật)
+const hideRoom = async (req, res) => {
+  const { roomId } = req.params;
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ message: 'Thiếu thông tin userId' });
+  }
+
+  try {
+    const room = await PhongChat.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Không tìm thấy phòng chat' });
+    }
+
+    const isMember = room.thanhVien.some(m => m.nguoiDung.toString() === userId.toString());
+    if (!isMember) {
+      return res.status(403).json({ message: 'Người dùng không thuộc phòng chat' });
+    }
+
+    await PhongChat.findByIdAndUpdate(roomId, { $addToSet: { anDoiVoi: userId } });
+
+    res.status(200).json({ message: 'Đã ẩn cuộc trò chuyện' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi ẩn phòng chat', error: error.message });
+  }
+};
+
 // Rời phòng chat nhóm
 const leaveRoom = async (req, res) => {
   const { roomId } = req.params;
@@ -747,5 +779,5 @@ const transferAdmin = async (req, res) => {
   }
 };
 
-export { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, leaveRoom, transferAdmin };
-export default { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, leaveRoom, transferAdmin };
+export { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, hideRoom, leaveRoom, transferAdmin };
+export default { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, hideRoom, leaveRoom, transferAdmin };
