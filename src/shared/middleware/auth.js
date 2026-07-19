@@ -29,11 +29,22 @@ const middlewareController = {
   },
 
   verifyTokenAndAdminAuth: (req, res, next) => {
-    middlewareController.verifyToken(req, res, () => {
-      if (req.user.vaiTro === "admin" || req.user.id === req.params.id) {
-        next();
-      } else {
+    middlewareController.verifyToken(req, res, async () => {
+      if (req.user.id === req.params.id) {
+        return next();
+      }
+      // req.user.vaiTro trong JWT là object { _id, ten, ... } chứ không phải
+      // string, nên so sánh trực tiếp với "admin" luôn sai — tra lại DB cho chắc
+      // (giống verifyAdmin), tránh vừa chặn nhầm admin thật vừa tránh tin vào
+      // claim có thể lỗi thời trong token.
+      try {
+        const admin = await isAdminUser(req.user.id);
+        if (admin) {
+          return next();
+        }
         res.status(403).json("You are not allowed to delete other!");
+      } catch (error) {
+        res.status(500).json({ message: "Lỗi xác thực admin", error: error.message });
       }
     });
   },

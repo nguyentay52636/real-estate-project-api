@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import userService from '#modules/users/services/userService.js';
-import { registerValidation } from '#modules/auth/validations/authValidation.js';
+import { adminCreateUserValidation } from '#modules/auth/validations/authValidation.js';
 import { uploadFromBuffer, destroyByUrl } from '#infra/storage/cloudinaryService.js';
 import { getDirname } from '#shared/utils/esm.js';
 import { asyncHandler } from '#shared/http/asyncHandler.js';
@@ -54,12 +54,9 @@ const userController = {
   }),
 
   createUser: asyncHandler(async (req, res) => {
-    const { error } = registerValidation(req.body);
+    const { error } = adminCreateUserValidation(req.body);
     if (error) {
       throw new AppError(error.details[0].message, 400);
-    }
-    if (req.body.matKhau !== req.body.xacNhanMatKhau) {
-      throw new AppError('Mật khẩu xác nhận không khớp', 400);
     }
 
     const { user, customer, chuTro, nhanVien } = await userService.createUser(req.body);

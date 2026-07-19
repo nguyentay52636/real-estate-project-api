@@ -1,6 +1,6 @@
 import { acceptHandoffTicket,
   getPendingTickets,
-  isNhanVien, } from '#modules/ai/services/handoffService.js';
+  isStaff, } from '#modules/ai/services/handoffService.js';
 import { emitError, wrapHandler } from '../helpers/socketHelpers.js';
 
 function registerHandoffHandlers(socket) {
@@ -21,8 +21,8 @@ function registerHandoffHandlers(socket) {
         return;
       }
 
-      const agentIsNhanVien = await isNhanVien(socket.user.id);
-      if (!agentIsNhanVien) {
+      const agentIsStaff = await isStaff(socket.user.id);
+      if (!agentIsStaff) {
         emitError(socket, 'UNAUTHORIZED', 'Chỉ nhân viên mới có thể nhận ticket');
         return;
       }
@@ -35,8 +35,8 @@ function registerHandoffHandlers(socket) {
   socket.on(
     'handoff:list',
     wrapHandler(socket, async () => {
-      const agentIsNhanVien = await isNhanVien(socket.user.id);
-      if (!agentIsNhanVien) {
+      const agentIsStaff = await isStaff(socket.user.id);
+      if (!agentIsStaff) {
         emitError(socket, 'UNAUTHORIZED', 'Chỉ nhân viên mới xem được danh sách ticket');
         return;
       }
