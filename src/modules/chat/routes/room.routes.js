@@ -37,6 +37,9 @@ router.post('/:roomId/add-member', roomController.addMemberToRoom);
 // Remove member from group room (leave room) - không cần auth
 router.post('/:roomId/leave', roomController.leaveRoom);
 
+// Hide room from a single user's own conversation list - không cần auth
+router.patch('/:roomId/hide', roomController.hideRoom);
+
 // Transfer admin role - không cần auth
 router.put('/:roomId/transfer-admin', roomController.transferAdmin);
 
