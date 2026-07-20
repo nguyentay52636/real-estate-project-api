@@ -35,6 +35,8 @@ export function createAuthService(deps = {}) {
       throw new AppError('Mật khẩu xác nhận không khớp', 400);
     }
 
+    const roleName = input.vaiTro || 'nguoi_thue';
+
     const [emailExists, usernameExists] = await Promise.all([
       User.findOne({ email: input.email }),
       User.findOne({ tenDangNhap: input.tenDangNhap }),
@@ -47,11 +49,11 @@ export function createAuthService(deps = {}) {
       throw new AppError('Username already exists', 400);
     }
 
-    let vaiTro = await Role.findOne({ ten: input.vaiTro });
+    let vaiTro = await Role.findOne({ ten: roleName });
     if (!vaiTro) {
       vaiTro = await Role.create({
-        ten: input.vaiTro,
-        moTa: `Vai trò ${input.vaiTro}`,
+        ten: roleName,
+        moTa: `Vai trò ${roleName}`,
       });
     }
 
@@ -68,14 +70,17 @@ export function createAuthService(deps = {}) {
     let customer = null;
     let chuTro = null;
 
-    if (input.vaiTro === 'nguoi_thue') {
+    if (roleName === 'nguoi_thue') {
       customer = await Customer.create({ nguoiDungId: newUser._id });
     }
-    if (input.vaiTro === 'chu_tro') {
+    if (roleName === 'chu_tro') {
       chuTro = await Owner.create({ nguoiDungId: newUser._id });
     }
 
-    return { user: newUser, customer, chuTro };
+    const userDoc = typeof newUser.toObject === 'function' ? newUser.toObject() : { ...newUser };
+    delete userDoc.matKhau;
+
+    return { user: userDoc, customer, chuTro };
   }
 
   async function login({ tenDangNhap, matKhau }) {

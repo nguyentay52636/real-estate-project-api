@@ -17,13 +17,13 @@ function sendError(res, err) {
 
 const authController = {
   register: async (req, res) => {
-    const { error } = registerValidation(req.body);
+    const { error, value } = registerValidation(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
     try {
-      const result = await authService.register(req.body);
+      const result = await authService.register(value);
       return res.status(201).json({
         message: 'Register successfully',
         user: result.user,
@@ -36,13 +36,13 @@ const authController = {
   },
 
   login: async (req, res) => {
-    const { error } = loginValidation(req.body);
+    const { error, value } = loginValidation(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
     try {
-      const { user, accessToken, refreshToken } = await authService.login(req.body);
+      const { user, accessToken, refreshToken } = await authService.login(value);
 
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,

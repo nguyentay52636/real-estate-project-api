@@ -53,10 +53,11 @@ describe('authService.register', () => {
     });
 
     assert.equal(result.user.email, 'an@example.com');
-    assert.equal(result.user.matKhau, 'hashed:secret12');
+    assert.equal(result.user.matKhau, undefined);
     assert.ok(result.customer);
     assert.equal(result.chuTro, null);
     assert.equal(customers[0].nguoiDungId, result.user._id);
+    assert.equal(User.users[0].matKhau, 'hashed:secret12');
   });
 
   it('creates owner profile for chu_tro', async () => {
@@ -144,6 +145,44 @@ describe('authService.register', () => {
         }),
       (err) => err instanceof AppError && err.message === 'Email already exists',
     );
+  });
+
+  it('defaults vaiTro to nguoi_thue when omitted and hides matKhau', async () => {
+    const User = createMockUserStore();
+    const customers = [];
+
+    const service = createAuthService({
+      User,
+      Role: {
+        findOne: mock.fn(async ({ ten }) => {
+          assert.equal(ten, 'nguoi_thue');
+          return { _id: 'role_thue', ten: 'nguoi_thue' };
+        }),
+        create: mock.fn(),
+      },
+      Customer: {
+        create: mock.fn(async (data) => {
+          const c = { _id: 'c1', ...data };
+          customers.push(c);
+          return c;
+        }),
+      },
+      Owner: { create: mock.fn() },
+      hashPassword: async (pw) => `hashed:${pw}`,
+    });
+
+    const result = await service.register({
+      ten: 'Default',
+      email: 'def@example.com',
+      tenDangNhap: 'def01',
+      matKhau: 'secret12',
+      xacNhanMatKhau: 'secret12',
+      soDienThoai: '0901234567',
+    });
+
+    assert.ok(result.customer);
+    assert.equal(result.chuTro, null);
+    assert.equal(result.user.matKhau, undefined);
   });
 });
 
