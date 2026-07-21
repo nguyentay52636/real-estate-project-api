@@ -241,6 +241,99 @@
 
 /**
  * @swagger
+ * /api/auth/forgot-password:
+ *   patch:
+ *     summary: Quên mật khẩu — gửi email đặt lại (khuyến nghị)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Luôn trả thành công (không lộ email có tồn tại hay không)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Email không hợp lệ
+ */
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   patch:
+ *     summary: Đặt lại mật khẩu bằng token từ email (khuyến nghị)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, matKhauMoi, xacNhanMatKhauMoi]
+ *             properties:
+ *               token:
+ *                 type: string
+ *               matKhauMoi:
+ *                 type: string
+ *                 minLength: 6
+ *               xacNhanMatKhauMoi:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Đặt lại thành công
+ *       400:
+ *         description: Token hết hạn hoặc mật khẩu không hợp lệ
+ */
+
+/**
+ * @swagger
+ * /api/auth/password:
+ *   patch:
+ *     summary: Đổi mật khẩu (đã đăng nhập)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [matKhauCu, matKhauMoi, xacNhanMatKhauMoi]
+ *             properties:
+ *               matKhauCu:
+ *                 type: string
+ *               matKhauMoi:
+ *                 type: string
+ *                 minLength: 6
+ *               xacNhanMatKhauMoi:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Đổi mật khẩu thành công
+ *       400:
+ *         description: Mật khẩu cũ sai hoặc xác nhận không khớp
+ *       401:
+ *         description: Chưa đăng nhập
+ */
+
+/**
+ * @swagger
  * /api/auth/forgotPassword:
  *   post:
  *     summary: Gửi email đặt lại mật khẩu
