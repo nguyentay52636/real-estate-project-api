@@ -3,7 +3,7 @@ import { AppError } from '#shared/errors/AppError.js';
 
 const POPULATE = [
   { path: 'nguoiNhan', select: 'ten anhDaiDien' },
-  { path: 'roomId', select: 'tenPhong loaiPhong' },
+  { path: 'roomId', select: 'tenPhong loaiPhong boiCanh' },
   {
     path: 'tinNhanId',
     select: 'noiDung loaiTinNhan nguoiGuiId',
