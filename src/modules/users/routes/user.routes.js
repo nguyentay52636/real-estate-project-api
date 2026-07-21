@@ -13,6 +13,10 @@ router.get("/", middlewareController.verifyToken, userController.getAllUser);
 // GET /api/user/all - Get all users (dedicated endpoint)
 router.get("/all", userController.getAllUsers);
 
+// PUT /api/user/me - Tự sửa hồ sơ của chính mình (mọi role đăng nhập) — phải
+// đứng TRƯỚC "/:id" bên dưới, nếu không Express sẽ khớp "me" vào :id trước.
+router.put("/me", middlewareController.verifyToken, userController.updateMyProfile);
+
 // GET /api/user/:id - Get user by ID
 router.get("/:id", userController.getUserById);
 

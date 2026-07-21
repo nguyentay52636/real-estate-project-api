@@ -27,13 +27,17 @@ const getAllRom = async (req, res) => {
 // Lấy danh sách phòng chat của người dùng
 const getRoomsOfUser = async (req, res) => {
   const { userId } = req.params;
+  const { boiCanh } = req.query;
 
   try {
-    const rooms = await PhongChat.find({
+    const query = {
       'thanhVien.nguoiDung': userId,
       'thanhVien.trangThai': 'active',
       anDoiVoi: { $ne: userId },
-    })
+    };
+    if (boiCanh) query.boiCanh = boiCanh;
+
+    const rooms = await PhongChat.find(query)
       .populate({
         path: 'thanhVien.nguoiDung',
         select: 'ten anhDaiDien email tenDangNhap'
@@ -163,7 +167,7 @@ const createRoom = async (req, res) => {
 
 // Tìm hoặc tạo phòng chat riêng tư
 const findOrCreatePrivateRoom = async (req, res) => {
-  const { userId1, userId2 } = req.body;
+  const { userId1, userId2, boiCanh } = req.body;
 
   if (!userId1 || !userId2) {
     return res.status(400).json({ message: 'Thiếu thông tin userId1 hoặc userId2' });
@@ -173,9 +177,12 @@ const findOrCreatePrivateRoom = async (req, res) => {
     return res.status(400).json({ message: 'Không thể tạo phòng chat với chính mình' });
   }
 
+  const boiCanhPhong = boiCanh === 'noi_bo' ? 'noi_bo' : 'ho_tro_khach';
+
   try {
     const existingRoom = await PhongChat.findOne({
       loaiPhong: 'private',
+      boiCanh: boiCanhPhong,
       'thanhVien.nguoiDung': { $all: [userId1, userId2] },
       'thanhVien.trangThai': 'active',
       $where: 'this.thanhVien.length == 2',
@@ -208,6 +215,7 @@ const findOrCreatePrivateRoom = async (req, res) => {
     const newRoom = await PhongChat.create({
       tenPhong: `Chat ${userId1} - ${userId2}`,
       loaiPhong: 'private',
+      boiCanh: boiCanhPhong,
       thanhVien: [
         { nguoiDung: userId1, vaiTro: 'member' },
         { nguoiDung: userId2, vaiTro: 'member' },

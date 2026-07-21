@@ -1,34 +1,15 @@
 import express from 'express';
+import middlewareController from '#shared/middleware/auth.js';
 import { getNotifications,
   getUnreadNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
   deleteAllNotifications, } from '#modules/chat/controllers/notificationChatController.js';
-import verifyToken from '#shared/middleware/auth.js';
-
-// 
-// const router = express.Router();
-// const {
-//   getNotifications,
-//   getUnreadNotifications,
-//   markNotificationAsRead,
-//   markAllNotificationsAsRead,
-//   deleteNotification,
-//   deleteAllNotifications,
-// } = require('../controllers/notificationController');
-//  
-
-// router.get('/', verifyToken, getNotifications);
-// router.get('/unread', verifyToken, getUnreadNotifications);
-// router.put('/:id/read', verifyToken, markNotificationAsRead);
-// router.put('/read-all', verifyToken, markAllNotificationsAsRead);
-// router.delete('/:id', verifyToken, deleteNotification);
-// router.delete('/', verifyToken, deleteAllNotifications);
-
-// export default router;
 
 const router = express.Router();
+
+router.use(middlewareController.verifyToken);
 
 router.get('/', getNotifications);
 router.get('/unread', getUnreadNotifications);

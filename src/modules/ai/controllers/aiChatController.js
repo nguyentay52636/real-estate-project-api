@@ -9,7 +9,8 @@ import { createHandoffTicket,
   isStaff,
   dismissHandoffTicket,
   dismissAllHandoffNotifications,
-  resolveHandoffTicket, } from '#modules/ai/services/handoffService.js';
+  resolveHandoffTicket,
+  cancelHandoffTicket, } from '#modules/ai/services/handoffService.js';
 import { processAdvisoryMessage } from '#modules/ai/services/aiAdvisoryPipeline.js';
 import { hasEmbeddingProvider } from '#modules/ai/services/embeddingService.js';
 import { hasChatProvider } from '#modules/ai/services/geminiChatService.js';
@@ -244,6 +245,26 @@ export const resolveHandoff = async (req, res) => {
     return res.status(200).json(result);
   } catch (error) {
     const status = error.message.includes('nhân viên') ? 403 : 400;
+    return res.status(status).json({ success: false, error: error.message });
+  }
+};
+
+export const cancelHandoff = async (req, res) => {
+  try {
+    const adminId = req.user?.id;
+    const { handoffToken } = req.params;
+
+    if (!adminId) {
+      return res.status(401).json({ success: false, error: 'Bạn chưa đăng nhập' });
+    }
+    if (!handoffToken) {
+      return res.status(400).json({ success: false, error: 'handoffToken là bắt buộc' });
+    }
+
+    const result = await cancelHandoffTicket(handoffToken, adminId);
+    return res.status(200).json(result);
+  } catch (error) {
+    const status = error.message.includes('admin') ? 403 : 400;
     return res.status(status).json({ success: false, error: error.message });
   }
 };
