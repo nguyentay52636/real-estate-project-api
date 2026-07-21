@@ -13,9 +13,6 @@ import {
   dismissAllHandoffNotifications,
   resolveHandoffTicket,
   cancelHandoffTicket,
-  cancelHandoffTicketByGuest,
-  reopenHandoffTicket,
-  deleteHandoffTicket,
 } from '#modules/ai/services/handoffService.js';
 import { processAdvisoryMessage } from '#modules/ai/services/aiAdvisoryPipeline.js';
 import { hasEmbeddingProvider } from '#modules/ai/services/embeddingService.js';

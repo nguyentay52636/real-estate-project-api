@@ -166,7 +166,13 @@ function formatTicketForClient(ticket) {
       : { name: ticket.tenKhachHang },
     conversationHistory: ticket.lichSuChat,
     createdAt: ticket.createdAt,
+<<<<<<< HEAD
 
+=======
+    // Có phòng chat hay chưa — ticket 'resolved' hoặc bị admin hủy lúc đang active
+    // đều có phòng (mở lại được, kiểu group). Ticket bị KHÁCH hủy lúc còn 'pending'
+    // thì không (chỉ xem, không mở lại được — xem reopenHandoffTicket).
+>>>>>>> 1275f41 (feat: implement AI-to-human handoff system with real-time socket notification and ticket management services)
     hasRoom: Boolean(ticket.phongChatId),
   };
 }
@@ -237,6 +243,12 @@ async function getPendingTickets(agentId = null) {
   return tickets.map(formatTicketForClient);
 }
 
+<<<<<<< HEAD
+=======
+/** Admin — toàn bộ ticket mọi trạng thái (kể cả resolved/cancelled/timeout), dùng
+ * cho trang "Quản lý yêu cầu". Khác getPendingTickets (chỉ pending+active, dùng
+ * cho chuông thông báo hàng ngày) — ở đây cần thấy hết để quản lý/mở lại/xóa. */
+>>>>>>> 1275f41 (feat: implement AI-to-human handoff system with real-time socket notification and ticket management services)
 async function getAllTickets() {
   const tickets = await ChatTicket.find({})
     .sort({ createdAt: -1 })
@@ -775,4 +787,8 @@ async function deleteHandoffTicket(handoffToken, adminId) {
 }
 
 export { createHandoffTicket, getHandoffStatus, getPendingTickets, getAllTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, cancelHandoffTicketByGuest, reopenHandoffTicket, deleteHandoffTicket, STAFF_ROLE_NAMES };
+<<<<<<< HEAD
 export default { createHandoffTicket, getHandoffStatus, getPendingTickets, getAllTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, cancelHandoffTicketByGuest, reopenHandoffTicket, deleteHandoffTicket, STAFF_ROLE_NAMES };
+=======
+export default { createHandoffTicket, getHandoffStatus, getPendingTickets, getAllTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, cancelHandoffTicketByGuest, reopenHandoffTicket, deleteHandoffTicket, STAFF_ROLE_NAMES };
+>>>>>>> 1275f41 (feat: implement AI-to-human handoff system with real-time socket notification and ticket management services)
