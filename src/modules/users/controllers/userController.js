@@ -53,6 +53,17 @@ const userController = {
     return res.status(200).json({ message: 'Update user successfully', updatedUser });
   }),
 
+  /** Tự sửa hồ sơ CỦA CHÍNH MÌNH — mọi role đăng nhập đều gọi được (khác
+   * updateUser ở trên, chỉ admin mới gọi được vì cho phép đổi vaiTro/trangThai
+   * của BẤT KỲ ai). Chỉ nhận ten/email/soDienThoai — cố tình bỏ qua mọi field
+   * khác kể cả nếu client cố gửi kèm (vaiTro, trangThai, matKhau...), tránh
+   * tự nâng quyền qua endpoint này. */
+  updateMyProfile: asyncHandler(async (req, res) => {
+    const { ten, email, soDienThoai } = req.body;
+    const updatedUser = await userService.updateUser(req.user.id, { ten, email, soDienThoai });
+    return res.status(200).json({ message: 'Cập nhật hồ sơ thành công', updatedUser });
+  }),
+
   createUser: asyncHandler(async (req, res) => {
     const { error } = adminCreateUserValidation(req.body);
     if (error) {
