@@ -33,6 +33,23 @@ async function isStaff(userId) {
   return Boolean(user);
 }
 
+/** Vai trò được coi là "admin" — chỉ nhóm này mới được hủy hẳn 1 ticket (khác
+ * với "xóa/hủy" thông thường của isStaff, vốn chỉ ẩn khỏi danh sách riêng của
+ * người bấm). Khớp ADMIN_PANEL role check phía #shared/middleware/auth.js. */
+const ADMIN_ROLE_NAMES = ['admin', 'quan_tri_vien'];
+
+async function isAdmin(userId) {
+  const roles = await VaiTro.find({ ten: { $in: ADMIN_ROLE_NAMES } }).select('_id');
+  if (!roles.length) return false;
+
+  const user = await NguoiDung.findOne({
+    _id: userId,
+    vaiTro: { $in: roles.map((r) => r._id) },
+    trangThai: 'hoat_dong',
+  });
+  return Boolean(user);
+}
+
 async function populateTicket(ticket) {
   return ChatTicket.findById(ticket._id)
     .populate('khachHangId', 'ten email tenDangNhap anhDaiDien')
@@ -518,5 +535,77 @@ async function resolveHandoffTicket(handoffToken, agentId) {
   };
 }
 
-export { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, STAFF_ROLE_NAMES };
-export default { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, STAFF_ROLE_NAMES };
+/** Hủy hẳn ticket — CHỈ admin. Khác với dismissHandoffTicket (ẩn khỏi danh sách
+ * riêng của 1 nhân viên, người khác vẫn nhận được bình thường): cancel dọn ticket
+ * khỏi danh sách của MỌI staff và báo cho khách hàng biết ticket đã bị hủy. */
+async function cancelHandoffTicket(handoffToken, adminId) {
+  const requesterIsAdmin = await isAdmin(adminId);
+  if (!requesterIsAdmin) {
+    throw new Error('Chỉ admin mới có thể hủy ticket');
+  }
+
+  const ticket = await ChatTicket.findOneAndUpdate(
+    { handoffToken, trangThai: { $in: ['pending', 'active'] } },
+    { $set: { trangThai: 'cancelled' } },
+    { new: true },
+  );
+
+  if (!ticket) {
+    throw new Error('Ticket không tồn tại hoặc đã được xử lý');
+  }
+
+  const io = getIO();
+
+  // Ticket đã có phòng chat (nhân viên nào đó đã nhận) — báo cho cả 2 phía ngay
+  // trong phòng bằng tin nhắn hệ thống, và đóng ticket lại như khi "Hoàn tất".
+  if (ticket.phongChatId) {
+    const systemMessage = await TinNhan.create({
+      roomId: ticket.phongChatId,
+      nguoiGuiId: adminId,
+      noiDung: 'Ticket này đã bị quản trị viên hủy.',
+      loaiTinNhan: 'system',
+      daDoc: [adminId],
+      trangThai: 'sent',
+    });
+
+    await PhongChat.findByIdAndUpdate(ticket.phongChatId, {
+      $push: { tinNhan: systemMessage._id },
+      tinNhanCuoi: systemMessage._id,
+      handoffResolvedAt: new Date(),
+    });
+
+    if (io) {
+      const populatedMessage = await TinNhan.findById(systemMessage._id).populate('nguoiGuiId', 'ten anhDaiDien');
+      io.to(ticket.phongChatId.toString()).emit('message:new', populatedMessage);
+    }
+  }
+
+  if (io) {
+    io.to('staff_online').emit('handoff:ticketCancelled', {
+      handoffToken,
+      cancelledBy: adminId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Khách đang chờ (chưa ai nhận) chỉ nghe được qua room cá nhân — nếu ticket
+    // đã có phòng chat thì họ cũng nhận tin nhắn hệ thống ở trên rồi.
+    if (ticket.khachHangId) {
+      io.to(ticket.khachHangId.toString()).emit('handoff:cancelled', {
+        handoffToken,
+        message: 'Ticket của bạn đã bị hủy.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  console.log(`🚫 [Handoff] Ticket ${handoffToken} cancelled by admin ${adminId}`);
+
+  return {
+    success: true,
+    handoffToken,
+    message: 'Đã hủy ticket',
+  };
+}
+
+export { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, STAFF_ROLE_NAMES };
+export default { createHandoffTicket, getHandoffStatus, getPendingTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, STAFF_ROLE_NAMES };
