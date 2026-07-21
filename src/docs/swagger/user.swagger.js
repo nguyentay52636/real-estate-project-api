@@ -7,6 +7,70 @@
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     ChuTro:
+ *       type: object
+ *       description: Hồ sơ chủ trọ (model ChuNha) — alias response field chuTro
+ *       properties:
+ *         _id:
+ *           type: string
+ *         nguoiDungId:
+ *           type: string
+ *         tongSoBds:
+ *           type: number
+ *         tongThuNhap:
+ *           type: number
+ *         danhSachBds:
+ *           type: array
+ *           items:
+ *             type: string
+ *         diemTrungBinh:
+ *           type: number
+ *         soDanhGia:
+ *           type: number
+ *         ghiChu:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *     NhanVien:
+ *       type: object
+ *       description: Hồ sơ nhân viên
+ *       properties:
+ *         _id:
+ *           type: string
+ *         nguoiDungId:
+ *           type: string
+ *         phongBan:
+ *           type: string
+ *           enum: [sale, ho_tro_khach_hang, chuyen_vien_sale, truong_phong_ban]
+ *         chucVu:
+ *           type: string
+ *           enum: [nhan_vien, quan_ly, giam_doc, truong_phong]
+ *         luong:
+ *           type: number
+ *         hieuSuat:
+ *           type: number
+ *         ngayVaoLam:
+ *           type: string
+ *           format: date-time
+ *         trangThai:
+ *           type: string
+ *           enum: [dang_hoat_dong, tam_nghi, da_nghi]
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
  * /api/user:
  *   get:
  *     summary: Lấy danh sách tất cả người dùng
