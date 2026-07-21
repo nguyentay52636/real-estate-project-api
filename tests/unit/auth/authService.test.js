@@ -264,3 +264,153 @@ describe('authService.login', () => {
     );
   });
 });
+
+describe('authService.forgotPassword', () => {
+  it('sends email when user exists without revealing in response', async () => {
+    const user = {
+      _id: 'u1',
+      email: 'a@example.com',
+      createPasswordChangedToken: () => 'raw-token',
+      save: mock.fn(async () => {}),
+    };
+
+    const sendMail = mock.fn(async () => ({ messageId: 'm1' }));
+    const service = createAuthService({
+      User: { findOne: mock.fn(async () => user) },
+      sendMail,
+      isEmailConfigured: () => true,
+    });
+
+    const result = await service.forgotPassword('a@example.com');
+    assert.ok(result.message.includes('email'));
+    assert.equal(result.resetToken, undefined);
+    assert.equal(sendMail.mock.calls.length, 1);
+  });
+
+  it('returns same message when email not found', async () => {
+    const sendMail = mock.fn(async () => ({}));
+    const service = createAuthService({
+      User: { findOne: mock.fn(async () => null) },
+      sendMail,
+      isEmailConfigured: () => true,
+    });
+
+    const result = await service.forgotPassword('missing@example.com');
+    assert.ok(result.message.includes('email'));
+    assert.equal(sendMail.mock.calls.length, 0);
+  });
+
+  it('throws 503 when email is not configured but user exists', async () => {
+    const user = {
+      _id: 'u1',
+      email: 'a@example.com',
+      createPasswordChangedToken: () => 'raw-token',
+      save: mock.fn(async () => {}),
+    };
+
+    const service = createAuthService({
+      User: { findOne: mock.fn(async () => user) },
+      isEmailConfigured: () => false,
+      sendMail: mock.fn(async () => ({})),
+    });
+
+    await assert.rejects(
+      () => service.forgotPassword('a@example.com'),
+      (err) => err instanceof AppError && err.statusCode === 503,
+    );
+  });
+
+  it('clears reset token when send mail fails', async () => {
+    const user = {
+      _id: 'u1',
+      email: 'a@example.com',
+      resetPasswordToken: 'hashed',
+      resetPasswordExpires: Date.now() + 1000,
+      createPasswordChangedToken() {
+        this.resetPasswordToken = 'hashed';
+        this.resetPasswordExpires = Date.now() + 1000;
+        return 'raw-token';
+      },
+      save: mock.fn(async function save() {
+        return this;
+      }),
+    };
+
+    const service = createAuthService({
+      User: { findOne: mock.fn(async () => user) },
+      isEmailConfigured: () => true,
+      sendMail: mock.fn(async () => {
+        throw new AppError('Không thể gửi email', 503);
+      }),
+    });
+
+    await assert.rejects(
+      () => service.forgotPassword('a@example.com'),
+      (err) => err instanceof AppError && err.statusCode === 503,
+    );
+    assert.equal(user.resetPasswordToken, undefined);
+    assert.equal(user.resetPasswordExpires, undefined);
+    assert.equal(user.save.mock.calls.length, 2);
+  });
+});
+
+describe('authService.resetPassword', () => {
+  it('rejects invalid token', async () => {
+    const service = createAuthService({
+      User: { findOne: mock.fn(async () => null) },
+      RefreshToken: { deleteMany: mock.fn(async () => {}) },
+    });
+
+    await assert.rejects(
+      () => service.resetPassword({ token: 'bad', matKhauMoi: 'secret12' }),
+      (err) => err instanceof AppError && err.statusCode === 400,
+    );
+  });
+});
+
+describe('authService.changePassword', () => {
+  it('rejects wrong current password', async () => {
+    const service = createAuthService({
+      User: {
+        findById: mock.fn(async () => ({ _id: 'u1', matKhau: 'hashed' })),
+      },
+      comparePassword: async () => false,
+      RefreshToken: { deleteMany: mock.fn(async () => {}) },
+    });
+
+    await assert.rejects(
+      () =>
+        service.changePassword('u1', {
+          matKhauCu: 'wrong',
+          matKhauMoi: 'newpass1',
+        }),
+      (err) => err instanceof AppError && err.statusCode === 400,
+    );
+  });
+
+  it('updates password when current password matches', async () => {
+    const user = {
+      _id: 'u1',
+      matKhau: 'hashed-old',
+      save: mock.fn(async function save() {
+        return this;
+      }),
+    };
+
+    const service = createAuthService({
+      User: { findById: mock.fn(async () => user) },
+      comparePassword: async () => true,
+      hashPassword: async (pw) => `hashed:${pw}`,
+      RefreshToken: { deleteMany: mock.fn(async () => ({ deletedCount: 1 })) },
+    });
+
+    const result = await service.changePassword('u1', {
+      matKhauCu: 'oldpass',
+      matKhauMoi: 'newpass1',
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(user.matKhau, 'hashed:newpass1');
+    assert.equal(user.save.mock.calls.length, 1);
+  });
+});

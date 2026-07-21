@@ -5,7 +5,7 @@ import RefreshTokenModel from '#models/RefreshToken.js';
 import CustomerModel from '#models/Customer.js';
 import RoleModel from '#models/Role.js';
 import OwnerModel from '#models/Owner.js';
-import sendMailDefault from '#shared/utils/sendMail.js';
+import { sendPasswordResetEmail as sendMailDefault, isEmailConfigured as isEmailConfiguredDefault } from '#shared/utils/sendMail.js';
 import {
   generateAccessToken as generateAccessTokenDefault,
   generateRefreshToken as generateRefreshTokenDefault,
@@ -28,6 +28,7 @@ export function createAuthService(deps = {}) {
   const generateRefreshToken = deps.generateRefreshToken ?? generateRefreshTokenDefault;
   const verifyRefreshToken = deps.verifyRefreshToken ?? verifyRefreshTokenDefault;
   const sendMail = deps.sendMail ?? sendMailDefault;
+  const isEmailConfigured = deps.isEmailConfigured ?? isEmailConfiguredDefault;
   const now = deps.now ?? (() => Date.now());
 
   async function register(input) {
@@ -136,20 +137,43 @@ export function createAuthService(deps = {}) {
   }
 
   async function forgotPassword(email) {
-    const user = await User.findOne({ email });
-    if (!user) {
-      throw new AppError('User not found', 404);
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      if (!isEmailConfigured()) {
+        throw new AppError(
+          'Hệ thống chưa cấu hình gửi email. Vui lòng liên hệ quản trị viên.',
+          503,
+        );
+      }
+
+      const resetToken = user.createPasswordChangedToken();
+      await user.save();
+
+      try {
+        await sendMail({ email: user.email, resetToken, recipientName: user.ten });
+      } catch (err) {
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+        throw err;
+      }
     }
 
-    const resetToken = user.createPasswordChangedToken();
-    await user.save();
-    const mailResult = await sendMail({ email, resetToken });
-    return { resetToken, mailResult };
+    return {
+      message:
+        'Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.',
+    };
   }
 
-  async function resetPassword({ newPassword, token }) {
-    if (!newPassword || !token) {
-      throw new AppError('missing input', 400);
+  async function resetPassword({ token, matKhauMoi, newPassword }) {
+    const password = matKhauMoi || newPassword;
+    if (!password || !token) {
+      throw new AppError('Thiếu token hoặc mật khẩu mới', 400);
+    }
+    if (String(password).length < 6) {
+      throw new AppError('Mật khẩu mới tối thiểu 6 ký tự', 400);
     }
 
     const resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -159,16 +183,40 @@ export function createAuthService(deps = {}) {
     });
 
     if (!user) {
-      throw new AppError('invalid reset token', 400);
+      throw new AppError('Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn', 400);
     }
 
-    user.matKhau = await hashPassword(newPassword);
+    user.matKhau = await hashPassword(password);
     user.resetPasswordToken = undefined;
-    user.passwordChangedAt = now();
+    user.passwordChangedAt = new Date(now());
     user.resetPasswordExpires = undefined;
     await user.save();
+    await RefreshToken.deleteMany({ userId: user._id });
 
-    return { success: true };
+    return { success: true, message: 'Đặt lại mật khẩu thành công' };
+  }
+
+  async function changePassword(userId, { matKhauCu, matKhauMoi }) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError('Không tìm thấy người dùng', 404);
+    }
+
+    const isValid = await comparePassword(matKhauCu, user.matKhau);
+    if (!isValid) {
+      throw new AppError('Mật khẩu hiện tại không đúng', 400);
+    }
+
+    if (matKhauCu === matKhauMoi) {
+      throw new AppError('Mật khẩu mới phải khác mật khẩu hiện tại', 400);
+    }
+
+    user.matKhau = await hashPassword(matKhauMoi);
+    user.passwordChangedAt = new Date(now());
+    await user.save();
+    await RefreshToken.deleteMany({ userId: user._id });
+
+    return { success: true, message: 'Đổi mật khẩu thành công' };
   }
 
   return {
@@ -178,6 +226,7 @@ export function createAuthService(deps = {}) {
     logout,
     forgotPassword,
     resetPassword,
+    changePassword,
   };
 }
 

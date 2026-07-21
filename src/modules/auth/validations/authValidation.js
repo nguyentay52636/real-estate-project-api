@@ -68,5 +68,65 @@ const facebookUserValidation = (data) => {
   return schema.validate(data);
 };
 
-export { registerValidation, adminCreateUserValidation, loginValidation, facebookUserValidation, SELF_SERVICE_ROLES };
-export default { registerValidation, adminCreateUserValidation, loginValidation, facebookUserValidation, SELF_SERVICE_ROLES };
+const forgotPasswordValidation = (data) => {
+  const schema = Joi.object({
+    email: Joi.string().email().required(),
+  });
+  return schema.validate(data);
+};
+
+const resetPasswordValidation = (data) => {
+  const schema = Joi.object({
+    token: Joi.string().required(),
+    matKhauMoi: Joi.string().min(6),
+    newPassword: Joi.string().min(6),
+    xacNhanMatKhauMoi: Joi.any(),
+    xacNhanMatKhau: Joi.any(),
+  })
+    .or('matKhauMoi', 'newPassword')
+    .custom((value, helpers) => {
+      const password = value.matKhauMoi || value.newPassword;
+      const confirm = value.xacNhanMatKhauMoi ?? value.xacNhanMatKhau;
+      if (confirm !== undefined && password !== confirm) {
+        return helpers.error('any.custom', { message: 'Mật khẩu xác nhận không khớp' });
+      }
+      return { ...value, matKhauMoi: password };
+    })
+    .messages({
+      'any.custom': '{{#message}}',
+    });
+
+  return schema.validate(data);
+};
+
+const changePasswordValidation = (data) => {
+  const schema = Joi.object({
+    matKhauCu: Joi.string().required(),
+    matKhauMoi: Joi.string().min(6).required(),
+    xacNhanMatKhauMoi: Joi.any().valid(Joi.ref('matKhauMoi')).required().messages({
+      'any.only': 'Mật khẩu xác nhận không khớp',
+    }),
+  });
+  return schema.validate(data);
+};
+
+export {
+  registerValidation,
+  adminCreateUserValidation,
+  loginValidation,
+  facebookUserValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
+  changePasswordValidation,
+  SELF_SERVICE_ROLES,
+};
+export default {
+  registerValidation,
+  adminCreateUserValidation,
+  loginValidation,
+  facebookUserValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
+  changePasswordValidation,
+  SELF_SERVICE_ROLES,
+};

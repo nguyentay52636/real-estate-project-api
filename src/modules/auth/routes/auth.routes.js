@@ -5,29 +5,26 @@ import facebookController from '#modules/auth/controllers/facebookController.js'
 
 const router = express.Router();
 
-// POST /auth/register
-router.post("/register", authController.register);
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+router.post('/logout', authController.userLogout);
 
-// POST /auth/login
-router.post("/login", authController.login);
+/** Quên mật khẩu — gửi email (PATCH khuyến nghị) */
+router.patch('/forgot-password', authController.forgotPassword);
+/** Alias cũ */
+router.post('/forgotPassword', authController.forgotPassword);
 
-// POST /auth/logout
-router.post("/logout", authController.userLogout);
-    
-// POST /auth/forgot-password
-router.post("/forgotPassword", authController.forgotPassword);
+/** Đặt lại mật khẩu bằng token email (PATCH khuyến nghị) */
+router.patch('/reset-password', authController.resetPassword);
+/** Alias cũ */
+router.post('/resetPassword', authController.resetPassword);
 
-// POST /auth/reset-password
-router.post("/resetPassword", authController.resetPassword);
+/** Đổi mật khẩu — cần đăng nhập */
+router.patch('/password', middlewareController.verifyToken, authController.changePassword);
 
-// Facebook login routes
 router.get('/facebook', facebookController.loginFacebook);
 router.get('/facebook/callback', facebookController.facebookCallback, facebookController.success);
-
-// New status endpoint
 router.get('/user', facebookController.userInfo);
-
-// Facebook debug endpoints
 router.get('/facebook/debug', facebookController.debugFacebookConfig);
 router.get('/facebook/test', facebookController.testFacebookApi);
 

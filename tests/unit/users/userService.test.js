@@ -93,7 +93,15 @@ describe('userService.createUser', () => {
 describe('userService.getUserById', () => {
   it('throws 404 when missing', async () => {
     const service = createUserService(
-      baseDeps({ User: { findById: mock.fn(() => ({ populate: mock.fn(async () => null) })) } }),
+      baseDeps({
+        User: {
+          findById: mock.fn(() => ({
+            select: mock.fn(() => ({
+              populate: mock.fn(async () => null),
+            })),
+          })),
+        },
+      }),
     );
     await assert.rejects(
       () => service.getUserById('missing'),
