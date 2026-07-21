@@ -106,6 +106,15 @@ function registerMessageHandlers(socket, io) {
         return;
       }
 
+      // Ticket hỗ trợ đã hoàn tất/hủy (còn phòng chat) → khóa, không cho gửi thêm
+      // tin nhắn nữa từ CẢ 2 phía, cho tới khi admin "Mở lại" (xem reopenHandoffTicket
+      // — mở lại sẽ set handoffResolvedAt về null nên check này tự hết chặn).
+      const roomBeforeSend = await PhongChat.findById(roomId).select('handoffToken handoffResolvedAt');
+      if (roomBeforeSend?.handoffToken && roomBeforeSend?.handoffResolvedAt) {
+        emitError(socket, 'ROOM_LOCKED', 'Yêu cầu hỗ trợ này đã đóng — không thể gửi tin nhắn.');
+        return;
+      }
+
       const message = await createMessage({
         roomId,
         nguoiGuiId: socket.user.id,
@@ -272,7 +281,7 @@ function registerMessageHandlers(socket, io) {
 
       const [populatedMessage, room] = await Promise.all([
         TinNhan.findById(message._id)
-          .populate('nguoiGuiId', 'hoTen avatar')
+          .populate('nguoiGuiId', 'ten anhDaiDien')
           .populate('roomId', 'tenPhong loaiPhong'),
         PhongChat.findById(roomId).select('tenPhong thanhVien'),
       ]);

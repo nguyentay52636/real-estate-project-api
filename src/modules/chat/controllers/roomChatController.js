@@ -1,6 +1,27 @@
 import PhongChat from '#models/ChatRoom.js';
 import TinNhan from '#models/Message.js';
+import ChatTicket from '#models/ChatTicket.js';
 import { createNotification } from './notificationChatController.js';
+
+/** Gắn thêm field `khachHangId` (không thuộc schema PhongChat) lên các phòng có
+ * handoffToken — để FE biết đúng ai là "khách" khi phòng có >2 thành viên (sau
+ * khi admin "Mở lại" một ticket, phòng trở thành group gồm khách + 2 nhân viên,
+ * không thể suy luận đúng khách chỉ từ danh sách thanhVien). */
+async function attachKhachHangId(rooms) {
+  const tokens = rooms.map((r) => r.handoffToken).filter(Boolean);
+  if (!tokens.length) return rooms.map((r) => (r.toObject ? r.toObject() : r));
+
+  const tickets = await ChatTicket.find({ handoffToken: { $in: tokens } }).select('handoffToken khachHangId');
+  const map = new Map(tickets.map((t) => [t.handoffToken, t.khachHangId ? t.khachHangId.toString() : null]));
+
+  return rooms.map((r) => {
+    const plain = r.toObject ? r.toObject() : r;
+    if (plain.handoffToken && map.has(plain.handoffToken)) {
+      plain.khachHangId = map.get(plain.handoffToken);
+    }
+    return plain;
+  });
+}
 
 const getAllRom = async (req, res) => {
   try {
@@ -56,7 +77,7 @@ const getRoomsOfUser = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    res.status(200).json(rooms);
+    res.status(200).json(await attachKhachHangId(rooms));
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lấy danh sách phòng chat', error: error.message });
   }

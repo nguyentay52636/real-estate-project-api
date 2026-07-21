@@ -117,11 +117,11 @@ function registerRoomHandlers(socket, io, state) {
         'thanhVien.trangThai': 'active',
         $expr: { $eq: [{ $size: '$thanhVien' }, 2] },
       })
-        .populate('thanhVien.nguoiDung', 'hoTen avatar')
-        .populate('nguoiTao', 'hoTen avatar')
+        .populate('thanhVien.nguoiDung', 'ten anhDaiDien')
+        .populate('nguoiTao', 'ten anhDaiDien')
         .populate({
           path: 'tinNhan',
-          populate: { path: 'nguoiGuiId', select: 'hoTen avatar' },
+          populate: { path: 'nguoiGuiId', select: 'ten anhDaiDien' },
           options: { sort: { createdAt: 1 } },
         });
 
@@ -189,8 +189,8 @@ function registerRoomHandlers(socket, io, state) {
         new: true,
         runValidators: true,
       })
-        .populate('thanhVien.nguoiDung', 'hoTen avatar')
-        .populate('nguoiTao', 'hoTen avatar');
+        .populate('thanhVien.nguoiDung', 'ten anhDaiDien')
+        .populate('nguoiTao', 'ten anhDaiDien');
 
       await createSystemMessage(roomId, socket.user.id, 'Thông tin phòng chat đã được cập nhật');
 
