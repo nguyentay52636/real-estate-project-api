@@ -62,6 +62,45 @@ describe('propertyService.getAllProperties', () => {
       (err) => err instanceof AppError && err.statusCode === 400,
     );
   });
+
+  it('filters by radius and calculates khoangCach when lat, lng, radius are provided', async () => {
+    const nearProperty = {
+      _id: 'p1',
+      tieuDe: 'Gần center',
+      toaDo: { lat: 10.7750, lng: 106.7000 },
+      toObject() { return { _id: 'p1', tieuDe: 'Gần center', toaDo: { lat: 10.7750, lng: 106.7000 } }; },
+    };
+    const farProperty = {
+      _id: 'p2',
+      tieuDe: 'Xa center',
+      toaDo: { lat: 10.9000, lng: 106.9000 },
+      toObject() { return { _id: 'p2', tieuDe: 'Xa center', toaDo: { lat: 10.9000, lng: 106.9000 } }; },
+    };
+
+    const Property = {
+      find: mock.fn(() => chainable([nearProperty, farProperty])),
+    };
+
+    const service = createPropertyService({ Property, User: {} });
+    const { data, pagination } = await service.getAllProperties({
+      lat: '10.7756',
+      lng: '106.7004',
+      radius: '5',
+    });
+
+    assert.equal(data.length, 1);
+    assert.equal(data[0]._id, 'p1');
+    assert.equal(typeof data[0].khoangCach, 'number');
+    assert.equal(pagination.total, 1);
+  });
+
+  it('rejects invalid radius coordinates', async () => {
+    const service = createPropertyService({ Property: {}, User: {} });
+    await assert.rejects(
+      () => service.getAllProperties({ lat: 'invalid', lng: '106.7', radius: '5' }),
+      (err) => err instanceof AppError && err.statusCode === 400,
+    );
+  });
 });
 
 describe('propertyService.getPropertyById', () => {
@@ -335,6 +374,63 @@ describe('propertyService.createProperty', () => {
     assert.equal(receivedPayload.chuNha, undefined);
     assert.equal(receivedPayload.nguoiDungId, 'u1');
     assert.equal(result.chuNha.ten, 'Tay');
+  });
+
+  it('automatically sets default fallback toaDo when omitted', async () => {
+    let receivedPayload;
+    function FakeProperty(payload) {
+      receivedPayload = payload;
+      this.save = mock.fn(async () => ({ _id: 'p1' }));
+    }
+    FakeProperty.findById = mock.fn(() => ({
+      populate: mock.fn(async () => ({
+        _id: 'p1',
+        tieuDe: 'Tin',
+        toaDo: receivedPayload.toaDo,
+        nguoiDungId: { ten: 'Tay' },
+        toObject() { return { _id: 'p1', tieuDe: 'Tin', toaDo: receivedPayload.toaDo, nguoiDungId: { ten: 'Tay' } }; },
+      })),
+    }));
+
+    const service = createPropertyService({
+      Property: FakeProperty,
+      User: {
+        findById: mock.fn(() => ({
+          populate: mock.fn(async () => ({ _id: 'u1', trangThai: 'hoat_dong', vaiTro: { ten: 'chu_tro' } })),
+        })),
+      },
+    });
+
+    const result = await service.createProperty({
+      tieuDe: 'Tin',
+      nguoiDungId: 'u1',
+      quanHuyen: 'Quận 1',
+      tinhThanh: 'TP.HCM',
+    });
+
+    assert.ok(receivedPayload.toaDo);
+    assert.equal(typeof receivedPayload.toaDo.lat, 'number');
+    assert.equal(typeof receivedPayload.toaDo.lng, 'number');
+  });
+
+  it('rejects invalid toaDo in createProperty', async () => {
+    const service = createPropertyService({
+      Property: {},
+      User: {
+        findById: mock.fn(() => ({
+          populate: mock.fn(async () => ({ _id: 'u1', trangThai: 'hoat_dong', vaiTro: { ten: 'chu_tro' } })),
+        })),
+      },
+    });
+
+    await assert.rejects(
+      () => service.createProperty({
+        tieuDe: 'Tin',
+        nguoiDungId: 'u1',
+        toaDo: { lat: 999, lng: 106.7 },
+      }),
+      (err) => err instanceof AppError && err.statusCode === 400,
+    );
   });
 });
 

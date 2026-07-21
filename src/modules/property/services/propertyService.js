@@ -1,6 +1,11 @@
 import PropertyModel from '#models/Property.js';
 import UserModel from '#models/User.js';
 import { AppError } from '#shared/errors/AppError.js';
+import {
+  calculateHaversineDistance,
+  getDefaultCoordinates,
+  isValidCoordinates,
+} from '#shared/utils/geoUtils.js';
 
 const CHU_NHA_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
 const VALID_STATUSES = ['cho_duyet', 'dang_hoat_dong', 'da_cho_thue', 'da_ban'];
@@ -77,6 +82,9 @@ export function createPropertyService(deps = {}) {
       giaMin,
       giaMax,
       search,
+      lat,
+      lng,
+      radius,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = query;
@@ -108,7 +116,86 @@ export function createPropertyService(deps = {}) {
     }
 
     const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+
+    const hasLat = lat !== undefined && lat !== null && lat !== '';
+    const hasLng = lng !== undefined && lng !== null && lng !== '';
+    const hasRadius = radius !== undefined && radius !== null && radius !== '';
+
+    if (hasLat && hasLng && hasRadius) {
+      const centerLat = parseFloat(lat);
+      const centerLng = parseFloat(lng);
+      const radiusKm = parseFloat(radius);
+
+      if (
+        isNaN(centerLat) ||
+        centerLat < -90 ||
+        centerLat > 90 ||
+        isNaN(centerLng) ||
+        centerLng < -180 ||
+        centerLng > 180 ||
+        isNaN(radiusKm) ||
+        radiusKm < 0
+      ) {
+        throw new AppError('Tọa độ hoặc bán kính không hợp lệ', 400);
+      }
+
+      const rows = await populateChuNha(Property.find(filter)).sort(sortOptions);
+      const mapped = mapPropertyList(rows);
+
+      const matched = [];
+      for (const item of mapped) {
+        if (
+          item.toaDo &&
+          typeof item.toaDo.lat === 'number' &&
+          typeof item.toaDo.lng === 'number'
+        ) {
+          const dist = calculateHaversineDistance(
+            centerLat,
+            centerLng,
+            item.toaDo.lat,
+            item.toaDo.lng,
+          );
+          if (dist <= radiusKm) {
+            item.khoangCach = Math.round(dist * 10) / 10;
+            matched.push(item);
+          }
+        }
+      }
+
+      const { pageNum, limitNum, skip } = parsePagination(query);
+      const total = matched.length;
+      const paginatedData = matched.slice(skip, skip + limitNum);
+
+      return {
+        data: paginatedData,
+        pagination: buildPaginationMeta(total, pageNum, limitNum),
+      };
+    }
+
     const { data, pagination } = await listWithPagination(filter, query, sortOptions);
+
+    if (hasLat && hasLng) {
+      const centerLat = parseFloat(lat);
+      const centerLng = parseFloat(lng);
+      if (!isNaN(centerLat) && !isNaN(centerLng)) {
+        for (const item of data) {
+          if (
+            item.toaDo &&
+            typeof item.toaDo.lat === 'number' &&
+            typeof item.toaDo.lng === 'number'
+          ) {
+            const dist = calculateHaversineDistance(
+              centerLat,
+              centerLng,
+              item.toaDo.lat,
+              item.toaDo.lng,
+            );
+            item.khoangCach = Math.round(dist * 10) / 10;
+          }
+        }
+      }
+    }
+
     return { data, pagination };
   }
 
@@ -332,6 +419,17 @@ export function createPropertyService(deps = {}) {
     const payload = sanitizePropertyInput(input);
     await assertCanPostProperty(payload.nguoiDungId);
 
+    if (payload.toaDo !== undefined && payload.toaDo !== null) {
+      if (!isValidCoordinates(payload.toaDo)) {
+        throw new AppError(
+          'Tọa độ không hợp lệ (lat trong khoảng [-90, 90], lng trong khoảng [-180, 180])',
+          400,
+        );
+      }
+    } else {
+      payload.toaDo = getDefaultCoordinates(payload.quanHuyen, payload.tinhThanh);
+    }
+
     const newProperty = new Property(payload);
     const saved = await newProperty.save();
     return getPropertyById(saved._id);
@@ -342,6 +440,15 @@ export function createPropertyService(deps = {}) {
     // Không cho đổi chủ tin qua update thường; nếu gửi nguoiDungId thì vẫn check role
     if (payload.nguoiDungId) {
       await assertCanPostProperty(payload.nguoiDungId);
+    }
+
+    if (payload.toaDo !== undefined && payload.toaDo !== null) {
+      if (!isValidCoordinates(payload.toaDo)) {
+        throw new AppError(
+          'Tọa độ không hợp lệ (lat trong khoảng [-90, 90], lng trong khoảng [-180, 180])',
+          400,
+        );
+      }
     }
 
     const updated = await Property.findByIdAndUpdate(id, payload, {

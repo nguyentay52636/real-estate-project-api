@@ -24,6 +24,10 @@ const BDSchema = new mongoose.Schema(
     tinhThanh: { type: String, required: true }, // Tỉnh/Thành phố
     quanHuyen: { type: String, required: true }, // Quận/Huyện
     duAn: { type: String, default: '', index: true }, // Tên dự án (dùng cho gợi ý liên quan)
+    toaDo: {
+      lat: { type: Number },
+      lng: { type: Number },
+    }, // Tọa độ bản đồ (vĩ độ, kinh độ)
 
     anhDaiDien: { type: String, required: true }, // Ảnh đại diện (thumbnail)
     gallery: [String], // Mảng link ảnh gallery
