@@ -74,8 +74,8 @@ async function createSystemMessage(roomId, nguoiGuiId, noiDung) {
 
 async function populateRoom(roomId, extraPopulate = []) {
   let query = PhongChat.findById(roomId)
-    .populate('thanhVien.nguoiDung', 'hoTen avatar')
-    .populate('nguoiTao', 'hoTen avatar');
+    .populate('thanhVien.nguoiDung', 'ten anhDaiDien')
+    .populate('nguoiTao', 'ten anhDaiDien');
 
   for (const opt of extraPopulate) {
     query = query.populate(opt);
@@ -85,7 +85,7 @@ async function populateRoom(roomId, extraPopulate = []) {
 
 async function populateMessage(messageId) {
   return TinNhan.findById(messageId)
-    .populate('nguoiGuiId', 'hoTen avatar')
+    .populate('nguoiGuiId', 'ten anhDaiDien')
     .populate('roomId', 'tenPhong loaiPhong')
     .populate('phanHoiTinNhan', 'noiDung nguoiGuiId');
 }
