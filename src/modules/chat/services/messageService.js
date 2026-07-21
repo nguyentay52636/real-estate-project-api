@@ -3,7 +3,7 @@ import RoomModel from '#models/ChatRoom.js';
 import NotificationModel from '#models/Notification.js';
 import { AppError } from '#shared/errors/AppError.js';
 
-const SENDER_FIELDS = 'hoTen avatar';
+const SENDER_FIELDS = 'ten anhDaiDien';
 const ROOM_FIELDS = 'tenPhong loaiPhong';
 const VALID_MESSAGE_TYPES = ['text', 'image', 'cuoc_goi', 'system'];
 const VALID_CALL_TYPES = ['audio', 'video'];

@@ -4,13 +4,17 @@ import { createHandoffTicket,
   getHandoffStatus as fetchHandoffStatus,
   acceptHandoffTicket,
   getPendingTickets,
+  getAllTickets,
   getActiveStaffUsers,
   formatTicketForClient,
   isStaff,
   dismissHandoffTicket,
   dismissAllHandoffNotifications,
   resolveHandoffTicket,
-  cancelHandoffTicket, } from '#modules/ai/services/handoffService.js';
+  cancelHandoffTicket,
+  cancelHandoffTicketByGuest,
+  reopenHandoffTicket,
+  deleteHandoffTicket, } from '#modules/ai/services/handoffService.js';
 import { processAdvisoryMessage } from '#modules/ai/services/aiAdvisoryPipeline.js';
 import { hasEmbeddingProvider } from '#modules/ai/services/embeddingService.js';
 import { hasChatProvider } from '#modules/ai/services/geminiChatService.js';
@@ -266,6 +270,80 @@ export const cancelHandoff = async (req, res) => {
   } catch (error) {
     const status = error.message.includes('admin') ? 403 : 400;
     return res.status(status).json({ success: false, error: error.message });
+  }
+};
+
+export const getAllHandoffs = async (req, res) => {
+  try {
+    const tickets = await getAllTickets();
+    return res.status(200).json({
+      success: true,
+      total: tickets.length,
+      tickets,
+      data: tickets,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const reopenHandoff = async (req, res) => {
+  try {
+    const adminId = req.user?.id;
+    const { handoffToken } = req.params;
+
+    if (!adminId) {
+      return res.status(401).json({ success: false, error: 'Bạn chưa đăng nhập' });
+    }
+    if (!handoffToken) {
+      return res.status(400).json({ success: false, error: 'handoffToken là bắt buộc' });
+    }
+
+    const result = await reopenHandoffTicket(handoffToken, adminId);
+    return res.status(200).json(result);
+  } catch (error) {
+    const status = error.message.includes('admin') ? 403 : 400;
+    return res.status(status).json({ success: false, error: error.message });
+  }
+};
+
+export const deleteHandoff = async (req, res) => {
+  try {
+    const adminId = req.user?.id;
+    const { handoffToken } = req.params;
+
+    if (!adminId) {
+      return res.status(401).json({ success: false, error: 'Bạn chưa đăng nhập' });
+    }
+    if (!handoffToken) {
+      return res.status(400).json({ success: false, error: 'handoffToken là bắt buộc' });
+    }
+
+    const result = await deleteHandoffTicket(handoffToken, adminId);
+    return res.status(200).json(result);
+  } catch (error) {
+    const status = error.message.includes('admin') ? 403 : 400;
+    return res.status(status).json({ success: false, error: error.message });
+  }
+};
+
+export const cancelHandoffByGuest = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { handoffToken } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Bạn chưa đăng nhập' });
+    }
+    if (!handoffToken) {
+      return res.status(400).json({ success: false, error: 'handoffToken là bắt buộc' });
+    }
+
+    const result = await cancelHandoffTicketByGuest(handoffToken, userId);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ success: false, error: error.message });
   }
 };
 

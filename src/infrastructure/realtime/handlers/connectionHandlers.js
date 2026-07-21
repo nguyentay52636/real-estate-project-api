@@ -9,26 +9,15 @@ import { registerHandoffHandlers } from './handoffHandlers.js';
 async function onConnection(socket, io, state) {
   logger.debug(`Socket connected: ${socket.user.id} (${socket.id})`);
 
-  const currentUser = await NguoiDung.findById(socket.user.id)
-    .populate('vaiTro', 'ten')
-    .select('vaiTro')
-    .lean();
-
-  socket.user.vaiTroTen = currentUser?.vaiTro?.ten || null;
-
+  // QUAN TRỌNG: đăng ký handler + join room cá nhân NGAY (đồng bộ), trước bất kỳ
+  // await nào. io.on('connection') ở SocketServer.js không await hàm này, nên nếu
+  // phần đăng ký bị đẩy xuống sau một await, những sự kiện client gửi ngay sau khi
+  // connect (joinRoom, message:create — đúng như useChatSocket phía client vẫn làm)
+  // có thể tới server TRƯỚC KHI các socket.on(...) này được gọi và bị rơi mất lặng
+  // lẽ (không lỗi, không ack). Đây chính là nguyên nhân chat "không realtime", phải
+  // load lại mới thấy tin nhắn mới.
   socket.join(socket.user.id);
   state.addSocket(socket.id, socket.user.id);
-
-  if (STAFF_ROLE_NAMES.includes(socket.user.vaiTroTen)) {
-    socket.join('staff_online');
-    const pendingTickets = await getPendingTickets(socket.user.id);
-    socket.emit('handoff:pendingList', {
-      tickets: pendingTickets,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  state.broadcastUserStatus(socket.user.id, 'online');
 
   registerRoomHandlers(socket, io, state);
   registerMessageHandlers(socket, io);
@@ -51,6 +40,26 @@ async function onConnection(socket, io, state) {
   socket.on('error', (error) => {
     logger.error(`Socket error ${socket.id}, user ${socket.user.id}:`, error);
   });
+
+  // Phần còn lại phụ thuộc DB (vai trò, staff_online, ticket chờ, trạng thái online)
+  // — chạy sau, không chặn việc socket nhận sự kiện.
+  const currentUser = await NguoiDung.findById(socket.user.id)
+    .populate('vaiTro', 'ten')
+    .select('vaiTro')
+    .lean();
+
+  socket.user.vaiTroTen = currentUser?.vaiTro?.ten || null;
+
+  if (STAFF_ROLE_NAMES.includes(socket.user.vaiTroTen)) {
+    socket.join('staff_online');
+    const pendingTickets = await getPendingTickets(socket.user.id);
+    socket.emit('handoff:pendingList', {
+      tickets: pendingTickets,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  state.broadcastUserStatus(socket.user.id, 'online');
 }
 
 export { onConnection };
