@@ -3,9 +3,16 @@ import NguoiDung from '#models/User.js';
 import VaiTro from '#models/Role.js';
 
 async function isAdminUser(userId) {
-  const adminRole = await VaiTro.findOne({ ten: "admin" });
-  if (!adminRole) return false;
-  const user = await NguoiDung.findOne({ _id: userId, vaiTro: adminRole._id });
+  // BE Role enum: admin | nhan_vien | nguoi_thue | chu_tro
+  // (quan_tri_vien giữ tương thích nếu DB còn dữ liệu cũ)
+  const adminRoles = await VaiTro.find({
+    ten: { $in: ["admin", "quan_tri_vien"] },
+  }).select("_id");
+  if (!adminRoles.length) return false;
+  const user = await NguoiDung.findOne({
+    _id: userId,
+    vaiTro: { $in: adminRoles.map((r) => r._id) },
+  });
   return Boolean(user);
 }
 
@@ -42,7 +49,9 @@ const middlewareController = {
         if (admin) {
           return next();
         }
-        res.status(403).json("You are not allowed to delete other!");
+        res.status(403).json({
+          message: "Chỉ admin mới được xóa tài khoản của người khác",
+        });
       } catch (error) {
         res.status(500).json({ message: "Lỗi xác thực admin", error: error.message });
       }

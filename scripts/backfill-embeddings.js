@@ -4,12 +4,7 @@ import CrmKnowledge from '#models/CrmKnowledge.js';
 import { embed, buildEmbeddingText } from '#modules/ai/services/embeddingService.js';
 import { clearCatalogCache } from '#modules/ai/services/crmKnowledgeCatalogClient.js';
 
-/**
- * Tạo embedding cho các BĐS đang thiếu (VD seed trực tiếp vào DB, không qua createKnowledge()).
- * Cần thiết để semantic search (vectorSearchService.js) có dữ liệu để so cosine similarity.
- *
- * Run: npm run backfill:embeddings
- */
+
 
 async function main() {
   await connectDB();

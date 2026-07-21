@@ -51,6 +51,20 @@
  *         duAn:
  *           type: string
  *           description: Tên dự án (dùng cho gợi ý BĐS liên quan)
+ *         toaDo:
+ *           type: object
+ *           description: Tọa độ địa lý của bất động sản
+ *           properties:
+ *             lat:
+ *               type: number
+ *               example: 10.7756
+ *             lng:
+ *               type: number
+ *               example: 106.7004
+ *         khoangCach:
+ *           type: number
+ *           description: Khoảng cách từ vị trí tìm kiếm tính bằng km (1 chữ số thập phân)
+ *           example: 1.2
  *         anhDaiDien:
  *           type: string
  *         gallery:
@@ -158,6 +172,21 @@
  *     summary: Lấy tất cả bất động sản
  *     tags: [Property]
  *     parameters:
+ *       - in: query
+ *         name: lat
+ *         schema:
+ *           type: number
+ *         description: Vĩ độ tâm tìm kiếm (VD 10.7756)
+ *       - in: query
+ *         name: lng
+ *         schema:
+ *           type: number
+ *         description: Kinh độ tâm tìm kiếm (VD 106.7004)
+ *       - in: query
+ *         name: radius
+ *         schema:
+ *           type: number
+ *         description: Bán kính tìm kiếm tính bằng km (VD 3 hoặc 5)
  *       - in: query
  *         name: loaiGiaoDich
  *         schema:

@@ -48,6 +48,16 @@
  *           type: string
  *         duAn:
  *           type: string
+ *         toaDo:
+ *           type: object
+ *           description: Tọa độ địa lý (vĩ độ, kinh độ). Nếu bỏ trống sẽ tự động gán tọa độ trung tâm quận/huyện
+ *           properties:
+ *             lat:
+ *               type: number
+ *               example: 10.7756
+ *             lng:
+ *               type: number
+ *               example: 106.7004
  *         anhDaiDien:
  *           type: string
  *         gallery:
