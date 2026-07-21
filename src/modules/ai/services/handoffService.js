@@ -6,8 +6,6 @@ import VaiTro from '#models/Role.js';
 import ThongBaoChat from '#models/ChatNotification.js';
 import { getIO } from '#infra/realtime/ioInstance.js';
 
-/** Các role được coi là "nhân viên hỗ trợ" cho luồng handoff — nhận thông báo ticket,
- * xem/nhận/xử lý ticket. Khớp với ADMIN_PANEL_ROLES / STAFF_NOTIFICATION_ROLES phía frontend. */
 const STAFF_ROLE_NAMES = ['admin', 'nhan_vien'];
 
 async function getStaffRoleIds() {
@@ -104,10 +102,6 @@ async function notifyStaffAboutTicket(ticket) {
     timestamp: new Date().toISOString(),
   };
 
-  // Chỉ emit 'handoff:newTicket' qua room cá nhân từng nhân viên (đã join lúc connect,
-  // xem connectionHandlers.js) — KHÔNG broadcast thêm lần nữa qua room 'staff_online',
-  // vì bất kỳ nhân viên nào đang online cũng đã có mặt ở CẢ HAI room cùng lúc, dẫn tới
-  // nhận đúng 1 sự kiện nhưng bị gửi/hiện 2 lần trên UI.
   for (const employee of employees) {
     const notification = await ThongBaoChat.create({
       nguoiNhan: employee._id,
@@ -139,11 +133,11 @@ function formatTicketForClient(ticket) {
   const agentId = ticket.nhanVienId?._id || ticket.nhanVienId || null;
   const agentInfo = agentId
     ? {
-        agentId,
-        agentName: ticket.nhanVienId?.ten || 'Nhân viên',
-        avatar: ticket.nhanVienId?.anhDaiDien,
-        agentRole: ticket.nhanVienId?.vaiTro?.ten || null,
-      }
+      agentId,
+      agentName: ticket.nhanVienId?.ten || 'Nhân viên',
+      avatar: ticket.nhanVienId?.anhDaiDien,
+      agentRole: ticket.nhanVienId?.vaiTro?.ten || null,
+    }
     : null;
 
   return {
@@ -156,25 +150,23 @@ function formatTicketForClient(ticket) {
     agentInfo,
     userId: customerId
       ? {
-          _id: customerId,
-          ten: customerName,
-          email: ticket.khachHangId?.email,
-          anhDaiDien: ticket.khachHangId?.anhDaiDien,
-        }
+        _id: customerId,
+        ten: customerName,
+        email: ticket.khachHangId?.email,
+        anhDaiDien: ticket.khachHangId?.anhDaiDien,
+      }
       : { name: ticket.tenKhachHang },
     customer: customerId
       ? {
-          id: customerId,
-          name: customerName,
-          email: ticket.khachHangId?.email,
-          avatar: ticket.khachHangId?.anhDaiDien,
-        }
+        id: customerId,
+        name: customerName,
+        email: ticket.khachHangId?.email,
+        avatar: ticket.khachHangId?.anhDaiDien,
+      }
       : { name: ticket.tenKhachHang },
     conversationHistory: ticket.lichSuChat,
     createdAt: ticket.createdAt,
-    // Có phòng chat hay chưa — ticket 'resolved' hoặc bị admin hủy lúc đang active
-    // đều có phòng (mở lại được, kiểu group). Ticket bị KHÁCH hủy lúc còn 'pending'
-    // thì không (chỉ xem, không mở lại được — xem reopenHandoffTicket).
+
     hasRoom: Boolean(ticket.phongChatId),
   };
 }
@@ -203,19 +195,19 @@ async function getHandoffStatus(handoffToken) {
     reason: ticket.lyDo,
     agentInfo: ticket.nhanVienId
       ? {
-          agentId: ticket.nhanVienId._id,
-          agentName: ticket.nhanVienId.ten,
-          avatar: ticket.nhanVienId.anhDaiDien,
-          agentRole: ticket.nhanVienId.vaiTro?.ten || null,
-        }
+        agentId: ticket.nhanVienId._id,
+        agentName: ticket.nhanVienId.ten,
+        avatar: ticket.nhanVienId.anhDaiDien,
+        agentRole: ticket.nhanVienId.vaiTro?.ten || null,
+      }
       : null,
     roomId: ticket.phongChatId?._id || ticket.phongChatId || null,
     room: ticket.phongChatId
       ? {
-          _id: ticket.phongChatId._id || ticket.phongChatId,
-          tenPhong: ticket.phongChatId.tenPhong,
-          loaiPhong: ticket.phongChatId.loaiPhong,
-        }
+        _id: ticket.phongChatId._id || ticket.phongChatId,
+        tenPhong: ticket.phongChatId.tenPhong,
+        loaiPhong: ticket.phongChatId.loaiPhong,
+      }
       : null,
     queuePosition: ticket.trangThai === 'pending' ? pendingCount : 0,
     estimatedWaitTime: ticket.trangThai === 'pending' ? '1-3 phút' : null,
@@ -245,9 +237,6 @@ async function getPendingTickets(agentId = null) {
   return tickets.map(formatTicketForClient);
 }
 
-/** Admin — toàn bộ ticket mọi trạng thái (kể cả resolved/cancelled/timeout), dùng
- * cho trang "Quản lý yêu cầu". Khác getPendingTickets (chỉ pending+active, dùng
- * cho chuông thông báo hàng ngày) — ở đây cần thấy hết để quản lý/mở lại/xóa. */
 async function getAllTickets() {
   const tickets = await ChatTicket.find({})
     .sort({ createdAt: -1 })
@@ -454,9 +443,7 @@ async function acceptHandoffTicket(handoffToken, agentId) {
     io.to(customerId.toString()).emit('handoff:accepted', acceptedPayload);
     io.to(agentId.toString()).emit('handoff:accepted', acceptedPayload);
     io.to(`handoff:${handoffToken}`).emit('handoff:accepted', acceptedPayload);
-    // Broadcast cho MỌI staff (kể cả người vừa nhận) — client tự lọc bỏ ticket của
-    // chính mình vì đã xử lý qua 'handoff:acceptSuccess'. Staff khác cập nhật ticket
-    // sang trạng thái "đang xử lý bởi ..." thay vì ticket biến mất khỏi danh sách.
+
     io.to('staff_online').emit('handoff:ticketAccepted', {
       ticket: formatTicketForClient(populatedTicket),
       timestamp: new Date().toISOString(),
