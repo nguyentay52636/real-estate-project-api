@@ -14,6 +14,14 @@ const PhongChatSchema = new mongoose.Schema({
     enum: ['private', 'group'],
     required: true,
   },
+  /** Phân biệt phòng hỗ trợ khách hàng (mặc định, gồm cả ticket AI-handoff)
+   * với phòng chat nội bộ giữa nhân viên/admin — để "Quản lý Chat" và "Chat
+   * nội bộ" lọc đúng danh sách của mình dù dùng chung model. */
+  boiCanh: {
+    type: String,
+    enum: ['ho_tro_khach', 'noi_bo'],
+    default: 'ho_tro_khach',
+  },
   thanhVien: [{
     nguoiDung: {
       type: mongoose.Schema.Types.ObjectId,
