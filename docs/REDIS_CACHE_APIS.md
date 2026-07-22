@@ -19,7 +19,8 @@ Không cấu hình Redis → mọi `cacheGet` / `cacheSet` no-op, logic DB vẫn
 | **TTL** | `CACHE_TTL_PROPERTY_LIST` (mặc định **45** giây) |
 | **Invalidate** | create / update / updateStatus / delete property → xóa prefix `property:list:` |
 
-Ghi chú: mỗi bộ query khác nhau (page, filter, search, …) = một key riêng.
+Ghi chú: mỗi bộ query khác nhau (page, filter, search, …) = một key riêng.  
+Params bust cache (`_t`, `_`, `timestamp`, …) bị loại khỏi key — FE vẫn nên **không** gửi `_t` để browser/CDN `Cache-Control` hoạt động.
 
 ---
 

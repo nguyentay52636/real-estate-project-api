@@ -58,6 +58,19 @@ async function ensureConnected() {
   }
 }
 
+/** Query params FE hay dùng để bust cache — bỏ khỏi Redis key để hit cache ổn định. */
+const CACHE_BUST_QUERY_KEYS = new Set(['_t', '_', 't', 'ts', 'timestamp', 'cacheBust', 'nocache']);
+
+export function stripCacheBustParams(query = {}) {
+  if (!query || typeof query !== 'object') return {};
+  const cleaned = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (CACHE_BUST_QUERY_KEYS.has(key)) continue;
+    cleaned[key] = value;
+  }
+  return cleaned;
+}
+
 export function hashKey(payload) {
   return crypto.createHash('sha1').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
 }
@@ -139,5 +152,6 @@ export default {
   cacheDelByPrefix,
   cacheGetOrSet,
   hashKey,
+  stripCacheBustParams,
   getCacheStatus,
 };
