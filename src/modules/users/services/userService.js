@@ -38,7 +38,7 @@ export function createUserService(deps = {}) {
     const [users, total] = await Promise.all([
       maybeLean(
         User.find(filter)
-          .select('-matKhau')
+          .select('-matKhau -resetPasswordToken -resetPasswordExpires')
           .populate('vaiTro', 'ten moTa')
           .sort({ createdAt: -1 })
           .skip(skip)
@@ -67,7 +67,7 @@ export function createUserService(deps = {}) {
   }
 
   async function getUserById(id) {
-    const user = await maybeLean(User.findById(id).select('-matKhau').populate('vaiTro'));
+    const user = await maybeLean(User.findById(id).select('-matKhau -resetPasswordToken -resetPasswordExpires').populate('vaiTro'));
     if (!user) throw new AppError('User not found', 404);
     return user;
   }

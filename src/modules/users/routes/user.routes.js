@@ -10,15 +10,15 @@ const router = express.Router();
 // trong app đều chỉ gọi khi đã có phiên; không có lý do để mở công khai)
 router.get("/", middlewareController.verifyToken, userController.getAllUser);
 
-// GET /api/user/all - Get all users (dedicated endpoint)
-router.get("/all", userController.getAllUsers);
+// GET /api/user/all - Get all users (admin only)
+router.get("/all", middlewareController.verifyAdmin, userController.getAllUsers);
 
 // PUT /api/user/me - Tự sửa hồ sơ của chính mình (mọi role đăng nhập) — phải
 // đứng TRƯỚC "/:id" bên dưới, nếu không Express sẽ khớp "me" vào :id trước.
 router.put("/me", middlewareController.verifyToken, userController.updateMyProfile);
 
-// GET /api/user/:id - Get user by ID
-router.get("/:id", userController.getUserById);
+// GET /api/user/:id - Get user by ID (yêu cầu đăng nhập)
+router.get("/:id", middlewareController.verifyToken, userController.getUserById);
 
 // POST /api/user - Create new user (admin only — có thể gán bất kỳ vaiTro nào,
 // kể cả admin/nhan_vien, nên KHÔNG được để công khai như /auth/register)

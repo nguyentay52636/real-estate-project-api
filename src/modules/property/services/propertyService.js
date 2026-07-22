@@ -15,7 +15,7 @@ import {
   stripCacheBustParams,
 } from '#infra/cache/redisCache.js';
 
-const CHU_NHA_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
+const CHU_NHA_FIELDS = 'ten anhDaiDien trangThai vaiTro';
 const LIST_SELECT =
   'tieuDe slug loaiBds loaiGiaoDich gia dienTich diaChi tinhThanh quanHuyen duAn toaDo anhDaiDien phongNgu phongTam choDauXe trangThai nguoiDungId badge subtitle overlay createdAt updatedAt';
 const VALID_STATUSES = ['cho_duyet', 'dang_hoat_dong', 'da_cho_thue', 'da_ban'];
