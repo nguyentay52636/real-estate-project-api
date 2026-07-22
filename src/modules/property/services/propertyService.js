@@ -12,6 +12,7 @@ import {
   cacheDel,
   cacheDelByPrefix,
   hashKey,
+  stripCacheBustParams,
 } from '#infra/cache/redisCache.js';
 
 const CHU_NHA_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
@@ -193,9 +194,10 @@ export function createPropertyService(deps = {}) {
   }
 
   async function getAllProperties(query = {}) {
-    const cacheKey = `property:list:${hashKey(query)}`;
+    const cacheQuery = stripCacheBustParams(query);
+    const cacheKey = `property:list:${hashKey(cacheQuery)}`;
     return cacheGetOrSet(cacheKey, Number(process.env.CACHE_TTL_PROPERTY_LIST || 45), () =>
-      getAllPropertiesUncached(query),
+      getAllPropertiesUncached(cacheQuery),
     );
   }
 
