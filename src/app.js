@@ -10,6 +10,8 @@ import { getDirname } from '#shared/utils/esm.js';
 import { errorHandler } from '#shared/middleware/errorHandler.js';
 import { corsOriginDelegate } from '#shared/utils/corsOrigins.js';
 
+import { encryptResponseMiddleware } from '#shared/middleware/encryptResponse.js';
+
 const dirname = getDirname(import.meta.url);
 
 export function createApp() {
@@ -36,6 +38,8 @@ export function createApp() {
 
   app.use(passport.initialize());
   app.use(passport.session());
+
+  app.use(encryptResponseMiddleware);
 
   app.use('/api', rootRouter);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
