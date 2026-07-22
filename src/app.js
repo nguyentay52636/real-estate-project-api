@@ -8,6 +8,7 @@ import rootRouter from '#modules/index.routes.js';
 import { swaggerSpec, swaggerUi, swaggerUiOptions } from '#docs/swagger/swagger.js';
 import { getDirname } from '#shared/utils/esm.js';
 import { errorHandler } from '#shared/middleware/errorHandler.js';
+import { corsOriginDelegate } from '#shared/utils/corsOrigins.js';
 
 const dirname = getDirname(import.meta.url);
 
@@ -15,7 +16,7 @@ export function createApp() {
   const app = express();
 
   app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: corsOriginDelegate,
     credentials: true,
   }));
 

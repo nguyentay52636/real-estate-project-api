@@ -1,12 +1,8 @@
+import { getAllowedOrigins } from '#shared/utils/corsOrigins.js';
+
 const socketConfig = {
   cors: {
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:8080',
-      'https://newlive-sable.vercel.app/',
-      process.env.CLIENT_URL,
-    ].filter(Boolean),
+    origin: getAllowedOrigins(),
     methods: ['GET', 'POST'],
     credentials: true,
   },
