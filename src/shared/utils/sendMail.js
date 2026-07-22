@@ -4,11 +4,12 @@ import {
   buildPasswordResetEmailHtml,
   buildPasswordResetEmailText,
 } from '#shared/utils/emailTemplates/passwordResetEmail.js';
+import { getPrimaryClientUrl } from '#shared/utils/corsOrigins.js';
 
 const RESET_EXPIRES_MINUTES = 15;
 
 function getClientUrl() {
-  return process.env.CLIENT_URL || process.env.URL_SERVER || 'http://localhost:5173';
+  return getPrimaryClientUrl();
 }
 
 function getBrandName() {
