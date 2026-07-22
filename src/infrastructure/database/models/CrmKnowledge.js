@@ -32,5 +32,7 @@ const crmKnowledgeSchema = new mongoose.Schema(
 );
 
 crmKnowledgeSchema.index({ trangThai: 1 });
+crmKnowledgeSchema.index({ trangThai: 1, updatedAt: -1 });
+crmKnowledgeSchema.index({ trangThai: 1, quanHuyen: 1 });
 
 export default mongoose.model('CrmKnowledge', crmKnowledgeSchema);

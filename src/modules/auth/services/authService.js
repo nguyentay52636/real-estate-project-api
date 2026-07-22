@@ -6,6 +6,8 @@ import CustomerModel from '#models/Customer.js';
 import RoleModel from '#models/Role.js';
 import OwnerModel from '#models/Owner.js';
 import { sendPasswordResetEmail as sendMailDefault, isEmailConfigured as isEmailConfiguredDefault } from '#shared/utils/sendMail.js';
+import { enqueueJob } from '#infra/queue/jobQueue.js';
+import { JOB_SEND_PASSWORD_RESET } from '#infra/queue/jobHandlers.js';
 import {
   generateAccessToken as generateAccessTokenDefault,
   generateRefreshToken as generateRefreshTokenDefault,
@@ -29,7 +31,17 @@ export function createAuthService(deps = {}) {
   const verifyRefreshToken = deps.verifyRefreshToken ?? verifyRefreshTokenDefault;
   const sendMail = deps.sendMail ?? sendMailDefault;
   const isEmailConfigured = deps.isEmailConfigured ?? isEmailConfiguredDefault;
+  const enqueue = deps.enqueueJob ?? enqueueJob;
   const now = deps.now ?? (() => Date.now());
+
+  async function deliverPasswordResetEmail(payload) {
+    // Unit tests inject sendMail → gửi sync để assert được.
+    // Production (không inject) → queue nền, không block request.
+    if (Object.prototype.hasOwnProperty.call(deps, 'sendMail')) {
+      return sendMail(payload);
+    }
+    return enqueue(JOB_SEND_PASSWORD_RESET, payload);
+  }
 
   async function register(input) {
     if (input.matKhau !== input.xacNhanMatKhau) {
@@ -152,7 +164,11 @@ export function createAuthService(deps = {}) {
       await user.save();
 
       try {
-        await sendMail({ email: user.email, resetToken, recipientName: user.ten });
+        await deliverPasswordResetEmail({
+          email: user.email,
+          resetToken,
+          recipientName: user.ten,
+        });
       } catch (err) {
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;

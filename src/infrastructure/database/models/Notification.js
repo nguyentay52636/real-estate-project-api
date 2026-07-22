@@ -12,4 +12,7 @@ const ThongBaoSchema = new mongoose.Schema({
   versionKey: false
 });
 
+ThongBaoSchema.index({ nguoiNhanId: 1, createdAt: -1 });
+ThongBaoSchema.index({ nguoiNhanId: 1, daDoc: 1, createdAt: -1 });
+
 export default mongoose.model('ThongBao', ThongBaoSchema);

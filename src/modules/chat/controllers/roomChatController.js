@@ -98,19 +98,21 @@ const getRoomById = async (req, res) => {
         select: 'ten anhDaiDien email tenDangNhap'
       })
       .populate({
-        path: 'tinNhan',
-        populate: { 
-          path: 'nguoiGuiId', 
-          select: 'ten anhDaiDien' 
-        },
-        options: { sort: { createdAt: 1 } },
-      });
+        path: 'tinNhanCuoi',
+        select: 'noiDung createdAt loaiTinNhan nguoiGuiId',
+        populate: {
+          path: 'nguoiGuiId',
+          select: 'ten anhDaiDien'
+        }
+      })
+      .lean();
 
     if (!room) {
       return res.status(404).json({ message: 'Không tìm thấy phòng chat' });
     }
 
-    res.status(200).json(room);
+    // Không hydrate toàn bộ tinNhan — FE lấy qua GET /api/message/:roomId?limit=
+    res.status(200).json({ ...room, tinNhan: undefined });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lấy thông tin phòng chat', error: error.message });
   }

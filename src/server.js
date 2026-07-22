@@ -5,6 +5,8 @@ import connectDB from '#config/db.js';
 import cloudinary from '#infra/storage/cloudinary.js';
 import { setupSocket } from '#infra/realtime/SocketServer.js';
 import { setupAiWebSocket } from '#infra/realtime/aiWebSocket.js';
+import { startJobWorker } from '#infra/queue/jobQueue.js';
+import '#infra/queue/jobHandlers.js';
 import { createApp } from './app.js';
 
 const PORT = process.env.PORT || 8000;
@@ -15,6 +17,7 @@ const server = http.createServer(app);
 connectDB();
 setupSocket(server);
 setupAiWebSocket(server);
+startJobWorker();
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

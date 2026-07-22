@@ -1,9 +1,11 @@
 import propertyService from '#modules/property/services/propertyService.js';
 import { asyncHandler } from '#shared/http/asyncHandler.js';
+import { publicApiCacheHeaders } from '#shared/utils/cdn.js';
 
 const propertyController = {
   getAllProperty: asyncHandler(async (req, res) => {
     const { data, pagination } = await propertyService.getAllProperties(req.query);
+    res.set(publicApiCacheHeaders(Number(process.env.HTTP_CACHE_PROPERTY_LIST || 30)));
     return res.status(200).json({
       message: 'Lấy danh sách bất động sản thành công',
       data,
@@ -13,6 +15,7 @@ const propertyController = {
 
   getPropertyById: asyncHandler(async (req, res) => {
     const property = await propertyService.getPropertyById(req.params.id);
+    res.set(publicApiCacheHeaders(Number(process.env.HTTP_CACHE_PROPERTY_DETAIL || 60)));
     return res.status(200).json({
       message: 'Lấy chi tiết bất động sản thành công',
       data: property,
@@ -21,6 +24,7 @@ const propertyController = {
 
   getRelatedProperties: asyncHandler(async (req, res) => {
     const data = await propertyService.getRelatedProperties(req.params.id, req.query);
+    res.set(publicApiCacheHeaders(Number(process.env.HTTP_CACHE_PROPERTY_RELATED || 60)));
     return res.status(200).json({
       message: 'Lấy danh sách bất động sản liên quan thành công',
       data,
@@ -37,6 +41,7 @@ const propertyController = {
 
   getPropertyBySlug: asyncHandler(async (req, res) => {
     const property = await propertyService.getPropertyBySlug(req.params.slug);
+    res.set(publicApiCacheHeaders(Number(process.env.HTTP_CACHE_PROPERTY_DETAIL || 60)));
     return res.status(200).json({
       message: 'Lấy chi tiết bất động sản theo slug thành công',
       data: property,

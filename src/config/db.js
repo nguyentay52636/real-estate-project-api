@@ -15,7 +15,12 @@ const connectDB = async () => {
   }
 
   try {
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+    await mongoose.connect(uri, {
+      maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE || 20),
+      minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE || 2),
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
     console.log(`Đã kết nối MongoDB (${mongoose.connection.name || 'default'})`);
   } catch (err) {
     console.error('Kết nối MongoDB thất bại:', err.message);

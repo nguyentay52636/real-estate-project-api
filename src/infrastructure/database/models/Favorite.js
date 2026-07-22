@@ -8,4 +8,8 @@ const YeuThichSchema = new mongoose.Schema({
   versionKey: false,
 });
 
+YeuThichSchema.index({ nguoiDungId: 1, batDongSanId: 1 }, { unique: true });
+YeuThichSchema.index({ batDongSanId: 1 });
+YeuThichSchema.index({ nguoiDungId: 1, createdAt: -1 });
+
 export default mongoose.model('YeuThich', YeuThichSchema);

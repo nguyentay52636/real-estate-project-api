@@ -2,8 +2,12 @@ import customerService from '#modules/users/services/customerService.js';
 import { asyncHandler } from '#shared/http/asyncHandler.js';
 
 const getCustomers = asyncHandler(async (req, res) => {
-  const customers = await customerService.getCustomers();
-  return res.status(200).json({ message: 'Get all customers successfully', customers });
+  const result = await customerService.getCustomers(req.query);
+  return res.status(200).json({
+    message: 'Get all customers successfully',
+    customers: result.data,
+    pagination: result.pagination,
+  });
 });
 
 const getCustomerById = asyncHandler(async (req, res) => {

@@ -11,8 +11,11 @@ function requireUserId(req) {
 
 const getMessages = asyncHandler(async (req, res) => {
   const userId = requireUserId(req);
-  const messages = await messageService.getMessages(req.params.roomId, userId);
-  return res.json(messages);
+  const result = await messageService.getMessages(req.params.roomId, userId, {
+    ...req.query,
+    roomId: req.params.roomId,
+  });
+  return res.json(result);
 });
 
 const createMessageHandler = asyncHandler(async (req, res) => {

@@ -7,4 +7,8 @@ const DanhGiaSchema = new mongoose.Schema({
   binhLuan: String
 }, { timestamps: true });
 
+DanhGiaSchema.index({ batDongSanId: 1, createdAt: -1 });
+DanhGiaSchema.index({ nguoiDungId: 1, createdAt: -1 });
+DanhGiaSchema.index({ nguoiDungId: 1, batDongSanId: 1 });
+
 export default mongoose.model('DanhGia', DanhGiaSchema);
