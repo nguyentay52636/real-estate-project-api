@@ -2,22 +2,23 @@ import express from 'express';
 import authController from '#modules/auth/controllers/authController.js';
 import middlewareController from '#shared/middleware/auth.js';
 import facebookController from '#modules/auth/controllers/facebookController.js';
+import { authRateLimiter } from '#shared/middleware/rateLimit.js';
 
 const router = express.Router();
 
-router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post('/register', authRateLimiter, authController.register);
+router.post('/login', authRateLimiter, authController.login);
 router.post('/logout', authController.userLogout);
 
 /** Quên mật khẩu — gửi email (PATCH khuyến nghị) */
-router.patch('/forgot-password', authController.forgotPassword);
+router.patch('/forgot-password', authRateLimiter, authController.forgotPassword);
 /** Alias cũ */
-router.post('/forgotPassword', authController.forgotPassword);
+router.post('/forgotPassword', authRateLimiter, authController.forgotPassword);
 
 /** Đặt lại mật khẩu bằng token email (PATCH khuyến nghị) */
-router.patch('/reset-password', authController.resetPassword);
+router.patch('/reset-password', authRateLimiter, authController.resetPassword);
 /** Alias cũ */
-router.post('/resetPassword', authController.resetPassword);
+router.post('/resetPassword', authRateLimiter, authController.resetPassword);
 
 /** Đổi mật khẩu — cần đăng nhập */
 router.patch('/password', middlewareController.verifyToken, authController.changePassword);

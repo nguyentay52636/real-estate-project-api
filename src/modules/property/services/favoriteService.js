@@ -51,24 +51,10 @@ export function createFavoriteService(deps = {}) {
     };
   }
 
-  async function getAllFavorites(query = {}) {
-    const { pageNum, limitNum, skip } = parsePagination(query);
-    const [data, total] = await Promise.all([
-      Favorite.find().sort({ createdAt: -1 }).skip(skip).limit(limitNum),
-      Favorite.countDocuments(),
-    ]);
-    return {
-      data,
-      pagination: {
-        total,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(total / limitNum),
-      },
-    };
-  }
-
   async function removeFavorite({ nguoiDungId, batDongSanId }) {
+    if (!nguoiDungId || !batDongSanId) {
+      throw new AppError('Missing user ID or property ID', 400);
+    }
     const deleted = await Favorite.findOneAndDelete({ nguoiDungId, batDongSanId });
     if (!deleted) {
       throw new AppError('Favorite not found', 404);
@@ -76,7 +62,7 @@ export function createFavoriteService(deps = {}) {
     return deleted;
   }
 
-  return { addFavorite, getFavoritesByUser, getAllFavorites, removeFavorite };
+  return { addFavorite, getFavoritesByUser, removeFavorite };
 }
 
 const favoriteService = createFavoriteService();

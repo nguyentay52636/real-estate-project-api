@@ -1,52 +1,45 @@
 import express from 'express';
 import userController from '#modules/users/controllers/userController.js';
 import middlewareController from '#shared/middleware/auth.js';
+import { attachAuthUser } from '#shared/middleware/attachAuthUser.js';
 import uploadAvatar from '#modules/upload/middleware/uploadAvatar.js';
 import uploadMemory from '#modules/upload/middleware/uploadMemory.js';
 
 const router = express.Router();
 
-// GET /api/user - Get all users (yêu cầu đăng nhập — trang admin và danh bạ chat
-// trong app đều chỉ gọi khi đã có phiên; không có lý do để mở công khai)
-router.get("/", middlewareController.verifyToken, userController.getAllUser);
+const requireAuth = [middlewareController.verifyToken, attachAuthUser];
 
-// GET /api/user/all - Get all users (admin only)
-router.get("/all", middlewareController.verifyAdmin, userController.getAllUsers);
+// GET /api/user — danh bạ công khai (ten/avatar/role), cần đăng nhập
+router.get('/', ...requireAuth, userController.getAllUser);
 
-// PUT /api/user/me - Tự sửa hồ sơ của chính mình (mọi role đăng nhập) — phải
-// đứng TRƯỚC "/:id" bên dưới, nếu không Express sẽ khớp "me" vào :id trước.
-router.put("/me", middlewareController.verifyToken, userController.updateMyProfile);
+// GET /api/user/all — full profile, admin only
+router.get('/all', middlewareController.verifyAdmin, userController.getAllUsers);
 
-// GET /api/user/:id - Get user by ID (yêu cầu đăng nhập)
-router.get("/:id", middlewareController.verifyToken, userController.getUserById);
+router.put('/me', ...requireAuth, userController.updateMyProfile);
 
-// POST /api/user - Create new user (admin only — có thể gán bất kỳ vaiTro nào,
-// kể cả admin/nhan_vien, nên KHÔNG được để công khai như /auth/register)
-router.post("/", middlewareController.verifyAdmin, userController.createUser);
+// GET /api/user/:id — self/staff: full; khác: public fields
+router.get('/:id', ...requireAuth, userController.getUserById);
 
-// PUT /api/user/:id - Update user (admin only — cùng lý do: cho phép đổi vaiTro
-// của bất kỳ tài khoản nào, nếu mở công khai thì tự nâng quyền chỉ bằng 1 request)
-router.put("/:id", middlewareController.verifyAdmin, userController.updateUser);
-
-// DELETE /api/user/:id (admin or self)
+router.post('/', middlewareController.verifyAdmin, userController.createUser);
+router.put('/:id', middlewareController.verifyAdmin, userController.updateUser);
 router.delete(
-  "/:id",
+  '/:id',
   middlewareController.verifyTokenAndAdminAuth,
-  userController.deleteUser
+  userController.deleteUser,
 );
 
-// PATCH /api/user/:id/avatar/local - Update user avatar locally
 router.patch(
-  "/:id/avatar/local",
-  uploadAvatar.single("avatar"),
-  userController.updateAvatarLocal
+  '/:id/avatar/local',
+  ...requireAuth,
+  uploadAvatar.single('avatar'),
+  userController.updateAvatarLocal,
 );
 
-// PATCH /api/user/:id/avatar/cloudinary - Update user avatar on Cloudinary
 router.patch(
-  "/:id/avatar/cloudinary",
-  uploadMemory.single("avatar"),
-  userController.updateAvatarCloudinary
+  '/:id/avatar/cloudinary',
+  ...requireAuth,
+  uploadMemory.single('avatar'),
+  userController.updateAvatarCloudinary,
 );
 
 export default router;

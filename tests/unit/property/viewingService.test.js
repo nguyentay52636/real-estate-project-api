@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { createViewingService } from '#modules/property/services/viewingService.js';
 import { AppError } from '#shared/errors/AppError.js';
 
+const guest = { id: 'u1', vaiTro: 'nguoi_thue', isStaff: false };
+
 function populateChain(result) {
   const q = {
     populate: mock.fn(() => q),
@@ -15,6 +17,14 @@ function populateChain(result) {
 }
 
 describe('viewingService.createViewing', () => {
+  it('throws 401 when actor missing', async () => {
+    const service = createViewingService({ Viewing: {}, Property: {}, User: {} });
+    await assert.rejects(
+      () => service.createViewing({}),
+      (err) => err instanceof AppError && err.statusCode === 401,
+    );
+  });
+
   it('throws 400 when required fields missing', async () => {
     const service = createViewingService({
       Viewing: {},
@@ -23,7 +33,7 @@ describe('viewingService.createViewing', () => {
     });
 
     await assert.rejects(
-      () => service.createViewing({}),
+      () => service.createViewing({}, guest),
       (err) => err instanceof AppError && err.statusCode === 400,
     );
   });
@@ -37,11 +47,13 @@ describe('viewingService.createViewing', () => {
 
     await assert.rejects(
       () =>
-        service.createViewing({
-          nguoiDungId: 'u1',
-          batDongSanId: 'p1',
-          thoiGian: '2026-07-20T09:00:00.000Z',
-        }),
+        service.createViewing(
+          {
+            batDongSanId: 'p1',
+            thoiGian: '2026-07-20T09:00:00.000Z',
+          },
+          guest,
+        ),
       (err) => err instanceof AppError && err.statusCode === 404,
     );
   });
@@ -58,7 +70,7 @@ describe('viewingService.getViewingById', () => {
     });
 
     await assert.rejects(
-      () => service.getViewingById('missing'),
+      () => service.getViewingById('missing', guest),
       (err) => err instanceof AppError && err.statusCode === 404,
     );
   });
@@ -66,10 +78,36 @@ describe('viewingService.getViewingById', () => {
 
 describe('viewingService.updateViewing', () => {
   it('rejects invalid trangThai with 400', async () => {
-    const service = createViewingService({ Viewing: {}, Property: {}, User: {} });
+    const service = createViewingService({
+      Viewing: {
+        findById: mock.fn(async () => ({ _id: 'v1', nguoiDungId: 'u1', batDongSanId: 'p1' })),
+      },
+      Property: {},
+      User: {},
+    });
     await assert.rejects(
-      () => service.updateViewing('v1', { trangThai: 'sai' }),
+      () => service.updateViewing('v1', { trangThai: 'sai' }, guest),
       (err) => err instanceof AppError && err.statusCode === 400,
+    );
+  });
+
+  it('rejects access for other user with 403', async () => {
+    const service = createViewingService({
+      Viewing: {
+        findById: mock.fn(async () => ({
+          _id: 'v1',
+          nguoiDungId: 'other',
+          batDongSanId: 'p1',
+        })),
+      },
+      Property: {
+        findById: mock.fn(async () => ({ _id: 'p1', nguoiDungId: 'owner1' })),
+      },
+      User: {},
+    });
+    await assert.rejects(
+      () => service.updateViewing('v1', { ghiChu: 'x' }, guest),
+      (err) => err instanceof AppError && err.statusCode === 403,
     );
   });
 });
@@ -77,13 +115,13 @@ describe('viewingService.updateViewing', () => {
 describe('viewingService.deleteViewing', () => {
   it('throws 404 when not found', async () => {
     const service = createViewingService({
-      Viewing: { findByIdAndDelete: mock.fn(async () => null) },
+      Viewing: { findById: mock.fn(async () => null) },
       Property: {},
       User: {},
     });
 
     await assert.rejects(
-      () => service.deleteViewing('missing'),
+      () => service.deleteViewing('missing', guest),
       (err) => err instanceof AppError && err.statusCode === 404,
     );
   });

@@ -55,18 +55,28 @@ function toViewingResponse(doc) {
   return viewing;
 }
 
+function ownerIdFromProperty(property) {
+  if (!property) return null;
+  const owner = property.nguoiDungId;
+  if (!owner) return null;
+  return String(typeof owner === 'object' ? owner._id : owner);
+}
+
 export function createViewingService(deps = {}) {
   const Viewing = deps.Viewing ?? ViewingModel;
   const Property = deps.Property ?? PropertyModel;
   const User = deps.User ?? UserModel;
 
-  async function getAllViewings(query = {}) {
-    const { nguoiDungId, batDongSanId, trangThai, sortBy = 'thoiGian', sortOrder = 'desc' } =
-      query;
+  async function propertyIdsOwnedBy(userId) {
+    const rows = await Property.find({ nguoiDungId: userId }).select('_id');
+    return rows.map((r) => r._id);
+  }
 
+  /** Scope list: staff = all; owner = own bookings + bookings on my properties; else = own only */
+  async function buildScopedFilter(query, actor) {
+    const { nguoiDungId, batDongSanId, trangThai } = query;
     const filter = {};
-    if (nguoiDungId) filter.nguoiDungId = nguoiDungId;
-    if (batDongSanId) filter.batDongSanId = batDongSanId;
+
     if (trangThai) {
       if (!VALID_STATUSES.includes(trangThai)) {
         throw new AppError(
@@ -76,8 +86,59 @@ export function createViewingService(deps = {}) {
       }
       filter.trangThai = trangThai;
     }
+    if (batDongSanId) filter.batDongSanId = batDongSanId;
 
+    if (actor?.isStaff) {
+      if (nguoiDungId) filter.nguoiDungId = nguoiDungId;
+      return filter;
+    }
+
+    const isOwnerRole = actor?.vaiTro === 'chu_tro';
+    if (isOwnerRole) {
+      const ownedIds = await propertyIdsOwnedBy(actor.id);
+      const scopeOr = [{ nguoiDungId: actor.id }];
+      if (ownedIds.length) {
+        scopeOr.push({ batDongSanId: { $in: ownedIds } });
+      }
+      filter.$or = scopeOr;
+      return filter;
+    }
+
+    // Khách / role khác: chỉ lịch của chính mình
+    filter.nguoiDungId = actor.id;
+    return filter;
+  }
+
+  async function assertCanAccessViewing(viewing, actor) {
+    if (!viewing) throw new AppError('Không tìm thấy lịch hẹn', 404);
+    if (actor?.isStaff) return;
+
+    const bookerId = String(
+      typeof viewing.nguoiDungId === 'object'
+        ? viewing.nguoiDungId._id
+        : viewing.nguoiDungId,
+    );
+    if (bookerId === String(actor.id)) return;
+
+    const propertyRef = viewing.batDongSanId;
+    const property =
+      propertyRef && typeof propertyRef === 'object' && propertyRef.nguoiDungId !== undefined
+        ? propertyRef
+        : await Property.findById(
+            typeof propertyRef === 'object' ? propertyRef._id : propertyRef,
+          );
+
+    if (ownerIdFromProperty(property) === String(actor.id)) return;
+
+    throw new AppError('Không có quyền truy cập lịch hẹn này', 403);
+  }
+
+  async function getAllViewings(query = {}, actor) {
+    if (!actor?.id) throw new AppError('Bạn chưa đăng nhập', 401);
+
+    const filter = await buildScopedFilter(query, actor);
     const { pageNum, limitNum, skip } = parsePagination(query);
+    const { sortBy = 'thoiGian', sortOrder = 'desc' } = query;
     const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
     const [rows, total] = await Promise.all([
@@ -91,14 +152,22 @@ export function createViewingService(deps = {}) {
     };
   }
 
-  async function getViewingById(id) {
+  async function getViewingById(id, actor) {
     const viewing = await populateViewing(Viewing.findById(id));
     if (!viewing) throw new AppError('Không tìm thấy lịch hẹn', 404);
+    await assertCanAccessViewing(viewing, actor);
     return toViewingResponse(viewing);
   }
 
-  async function createViewing(input) {
-    const { nguoiDungId, batDongSanId, thoiGian, ghiChu, trangThai } = input;
+  async function createViewing(input, actor) {
+    if (!actor?.id) throw new AppError('Bạn chưa đăng nhập', 401);
+
+    const batDongSanId = input.batDongSanId;
+    const thoiGian = input.thoiGian;
+    const ghiChu = input.ghiChu;
+    // Client không được đặt lịch hộ người khác trừ staff
+    const nguoiDungId = actor.isStaff && input.nguoiDungId ? input.nguoiDungId : actor.id;
+    const trangThai = input.trangThai;
 
     if (!nguoiDungId || !batDongSanId || !thoiGian) {
       throw new AppError('Thiếu nguoiDungId, batDongSanId hoặc thoiGian', 400);
@@ -126,10 +195,14 @@ export function createViewingService(deps = {}) {
       trangThai,
     });
 
-    return getViewingById(viewing._id);
+    return getViewingById(viewing._id, actor);
   }
 
-  async function updateViewing(id, input) {
+  async function updateViewing(id, input, actor) {
+    const existing = await Viewing.findById(id);
+    if (!existing) throw new AppError('Không tìm thấy lịch hẹn', 404);
+    await assertCanAccessViewing(existing, actor);
+
     const allowed = {};
     if (input.thoiGian !== undefined) allowed.thoiGian = input.thoiGian;
     if (input.ghiChu !== undefined) allowed.ghiChu = input.ghiChu;
@@ -154,10 +227,14 @@ export function createViewingService(deps = {}) {
     });
     if (!updated) throw new AppError('Không tìm thấy lịch hẹn', 404);
 
-    return getViewingById(updated._id);
+    return getViewingById(updated._id, actor);
   }
 
-  async function deleteViewing(id) {
+  async function deleteViewing(id, actor) {
+    const existing = await Viewing.findById(id);
+    if (!existing) throw new AppError('Không tìm thấy lịch hẹn', 404);
+    await assertCanAccessViewing(existing, actor);
+
     const deleted = await Viewing.findByIdAndDelete(id);
     if (!deleted) throw new AppError('Không tìm thấy lịch hẹn', 404);
     return deleted;

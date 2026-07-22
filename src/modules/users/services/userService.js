@@ -13,6 +13,12 @@ function parsePagination({ page = 1, limit = 20 } = {}) {
   return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
 }
 
+/** Field an toàn cho danh bạ chat / profile công khai */
+export const USER_PUBLIC_SELECT = 'ten anhDaiDien trangThai vaiTro';
+/** Field đầy đủ (không gồm secret) — self / staff / admin list */
+export const USER_PRIVATE_SELECT =
+  '-matKhau -resetPasswordToken -resetPasswordExpires';
+
 export function createUserService(deps = {}) {
   const User = deps.User ?? UserModel;
   const Role = deps.Role ?? RoleModel;
@@ -29,17 +35,20 @@ export function createUserService(deps = {}) {
     return role;
   }
 
-  async function listUsers(query = {}) {
+  async function listUsers(query = {}, { publicOnly = false } = {}) {
     const { pageNum, limitNum, skip } = parsePagination(query);
     const filter = {};
     if (query.trangThai) filter.trangThai = query.trangThai;
     if (query.vaiTro) filter.vaiTro = query.vaiTro;
 
+    const select = publicOnly ? USER_PUBLIC_SELECT : USER_PRIVATE_SELECT;
+    const roleSelect = publicOnly ? 'ten' : 'ten moTa';
+
     const [users, total] = await Promise.all([
       maybeLean(
         User.find(filter)
-          .select('-matKhau -resetPasswordToken -resetPasswordExpires')
-          .populate('vaiTro', 'ten moTa')
+          .select(select)
+          .populate('vaiTro', roleSelect)
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limitNum),
@@ -58,16 +67,22 @@ export function createUserService(deps = {}) {
     };
   }
 
+  /** Danh bạ — chỉ field public (không email/SĐT) */
   async function getAllUser(query = {}) {
-    return listUsers(query);
+    return listUsers(query, { publicOnly: true });
   }
 
+  /** Admin — full profile (trừ secret) */
   async function getAllUsers(query = {}) {
-    return listUsers(query);
+    return listUsers(query, { publicOnly: false });
   }
 
-  async function getUserById(id) {
-    const user = await maybeLean(User.findById(id).select('-matKhau -resetPasswordToken -resetPasswordExpires').populate('vaiTro'));
+  async function getUserById(id, { publicOnly = false } = {}) {
+    const select = publicOnly ? USER_PUBLIC_SELECT : USER_PRIVATE_SELECT;
+    const roleSelect = publicOnly ? 'ten' : undefined;
+    let q = User.findById(id).select(select);
+    q = roleSelect ? q.populate('vaiTro', roleSelect) : q.populate('vaiTro');
+    const user = await maybeLean(q);
     if (!user) throw new AppError('User not found', 404);
     return user;
   }
@@ -145,7 +160,9 @@ export function createUserService(deps = {}) {
   }
 
   async function setAvatar(id, avatarUrl) {
-    return User.findByIdAndUpdate(id, { anhDaiDien: avatarUrl }, { new: true }).populate('vaiTro');
+    return User.findByIdAndUpdate(id, { anhDaiDien: avatarUrl }, { new: true })
+      .select(USER_PRIVATE_SELECT)
+      .populate('vaiTro');
   }
 
   return {
