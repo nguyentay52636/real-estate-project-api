@@ -5,6 +5,13 @@ import CustomerModel from '#models/Customer.js';
 import OwnerModel from '#models/Owner.js';
 import EmployeeModel from '#models/Employee.js';
 import { AppError } from '#shared/errors/AppError.js';
+import { maybeLean } from '#shared/utils/queryHelpers.js';
+
+function parsePagination({ page = 1, limit = 20 } = {}) {
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
+}
 
 export function createUserService(deps = {}) {
   const User = deps.User ?? UserModel;
@@ -22,16 +29,45 @@ export function createUserService(deps = {}) {
     return role;
   }
 
-  async function getAllUser() {
-    return User.find().select('-matKhau').populate('vaiTro');
+  async function listUsers(query = {}) {
+    const { pageNum, limitNum, skip } = parsePagination(query);
+    const filter = {};
+    if (query.trangThai) filter.trangThai = query.trangThai;
+    if (query.vaiTro) filter.vaiTro = query.vaiTro;
+
+    const [users, total] = await Promise.all([
+      maybeLean(
+        User.find(filter)
+          .select('-matKhau')
+          .populate('vaiTro', 'ten moTa')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum),
+      ),
+      User.countDocuments(filter),
+    ]);
+
+    return {
+      users,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    };
   }
 
-  async function getAllUsers() {
-    return User.find().select('-matKhau').populate('vaiTro');
+  async function getAllUser(query = {}) {
+    return listUsers(query);
+  }
+
+  async function getAllUsers(query = {}) {
+    return listUsers(query);
   }
 
   async function getUserById(id) {
-    const user = await User.findById(id).select('-matKhau').populate('vaiTro');
+    const user = await maybeLean(User.findById(id).select('-matKhau').populate('vaiTro'));
     if (!user) throw new AppError('User not found', 404);
     return user;
   }

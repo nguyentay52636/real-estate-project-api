@@ -81,6 +81,14 @@ const BDSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Compound indexes cho list/filter/related (Phase 1 performance)
+BDSchema.index({ trangThai: 1, loaiGiaoDich: 1, createdAt: -1 });
+BDSchema.index({ trangThai: 1, tinhThanh: 1, quanHuyen: 1, createdAt: -1 });
+BDSchema.index({ nguoiDungId: 1, createdAt: -1 });
+BDSchema.index({ loaiBds: 1, quanHuyen: 1 });
+BDSchema.index({ tinhThanh: 1, quanHuyen: 1 });
+BDSchema.index({ tieuDe: 'text', diaChi: 'text' });
+
 async function generateUniqueSlug(tieuDe, excludeId = null) {
   const baseSlug = slugify(tieuDe, {
     lower: true,

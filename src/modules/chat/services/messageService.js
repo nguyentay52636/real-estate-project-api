@@ -1,21 +1,35 @@
 import MessageModel from '#models/Message.js';
 import RoomModel from '#models/ChatRoom.js';
-import NotificationModel from '#models/Notification.js';
+import ChatNotificationModel from '#models/ChatNotification.js';
 import { AppError } from '#shared/errors/AppError.js';
+import { maybeLean, maybeSelect } from '#shared/utils/queryHelpers.js';
 
 const SENDER_FIELDS = 'ten anhDaiDien';
 const ROOM_FIELDS = 'tenPhong loaiPhong';
 const VALID_MESSAGE_TYPES = ['text', 'image', 'cuoc_goi', 'system'];
 const VALID_CALL_TYPES = ['audio', 'video'];
 const VALID_CALL_STATUSES = ['missed', 'ended', 'declined', 'ongoing'];
+const DEFAULT_MESSAGE_LIMIT = 50;
+
+function parseMessagePagination({ limit, before, after, page } = {}) {
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || DEFAULT_MESSAGE_LIMIT));
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  return {
+    limitNum,
+    pageNum,
+    before: before ? new Date(before) : null,
+    after: after ? new Date(after) : null,
+    skip: page ? (pageNum - 1) * limitNum : 0,
+  };
+}
 
 export function createMessageService(deps = {}) {
   const Message = deps.Message ?? MessageModel;
   const Room = deps.Room ?? RoomModel;
-  const Notification = deps.Notification ?? NotificationModel;
+  const Notification = deps.Notification ?? ChatNotificationModel;
 
   async function checkRoomAccess(roomId, userId) {
-    const room = await Room.findById(roomId);
+    const room = await maybeLean(maybeSelect(Room.findById(roomId), 'thanhVien tenPhong'));
     if (!room) throw new AppError('Không tìm thấy phòng chat', 404);
     const member = room.thanhVien.find(
       (m) => m.nguoiDung.toString() === userId.toString(),
@@ -33,20 +47,51 @@ export function createMessageService(deps = {}) {
       .populate('phanHoiTinNhan.nguoiGuiId', SENDER_FIELDS);
   }
 
+  /** Chỉ cập nhật tin cuối — không $push tinNhan[] */
   async function linkMessageToRoom(roomId, messageId) {
     await Room.findByIdAndUpdate(roomId, {
-      $push: { tinNhan: messageId },
       tinNhanCuoi: messageId,
+      updatedAt: new Date(),
     });
   }
 
-  async function getMessages(roomId, userId) {
+  async function getMessages(roomId, userId, query = {}) {
     await checkRoomAccess(roomId, userId);
-    return Message.find({ roomId })
-      .populate('nguoiGuiId')
-      .populate('roomId')
-      .populate('phanHoiTinNhan.nguoiGuiId')
-      .sort({ createdAt: 1 });
+    const { limitNum, pageNum, before, after, skip } = parseMessagePagination(query);
+
+    const filter = { roomId };
+    if (before && !Number.isNaN(before.getTime())) {
+      filter.createdAt = { ...(filter.createdAt || {}), $lt: before };
+    }
+    if (after && !Number.isNaN(after.getTime())) {
+      filter.createdAt = { ...(filter.createdAt || {}), $gt: after };
+    }
+
+    let findQuery = Message.find(filter).sort({ createdAt: before ? -1 : 1 });
+    if (query.page && typeof findQuery.skip === 'function') {
+      findQuery = findQuery.skip(skip);
+    }
+    if (typeof findQuery.limit === 'function') {
+      findQuery = findQuery.limit(limitNum);
+    }
+
+    const [rows, total] = await Promise.all([
+      maybeLean(populateMessage(findQuery)),
+      Message.countDocuments(filter),
+    ]);
+
+    const data = before ? [...rows].reverse() : rows;
+
+    return {
+      data,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        hasMore: data.length === limitNum,
+      },
+    };
   }
 
   async function createMessage(input, nguoiGuiId) {
@@ -64,7 +109,7 @@ export function createMessageService(deps = {}) {
 
     let phanHoiData = null;
     if (phanHoiTinNhan) {
-      const replyMessage = await Message.findById(phanHoiTinNhan);
+      const replyMessage = await maybeLean(Message.findById(phanHoiTinNhan));
       if (!replyMessage) throw new AppError('Tin nhắn trả lời không hợp lệ', 400);
       phanHoiData = {
         _id: replyMessage._id,
@@ -89,17 +134,30 @@ export function createMessageService(deps = {}) {
     const otherMembers = room.thanhVien.filter(
       (m) => m.nguoiDung.toString() !== nguoiGuiId && m.trangThai === 'active',
     );
-    for (const member of otherMembers) {
-      await Notification.create({
-        nguoiNhan: member.nguoiDung,
-        loai: 'new_message',
-        noiDung: `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
-        roomId,
-        tinNhanId: newMessage._id,
-      });
+    if (otherMembers.length && typeof Notification.insertMany === 'function') {
+      await Notification.insertMany(
+        otherMembers.map((member) => ({
+          nguoiNhan: member.nguoiDung,
+          loai: 'new_message',
+          noiDung: `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
+          roomId,
+          tinNhanId: newMessage._id,
+        })),
+        { ordered: false },
+      );
+    } else {
+      for (const member of otherMembers) {
+        await Notification.create({
+          nguoiNhan: member.nguoiDung,
+          loai: 'new_message',
+          noiDung: `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
+          roomId,
+          tinNhanId: newMessage._id,
+        });
+      }
     }
 
-    return populateMessage(Message.findById(newMessage._id));
+    return maybeLean(populateMessage(Message.findById(newMessage._id)));
   }
 
   async function createCallMessage(input, nguoiGuiId) {
@@ -135,9 +193,11 @@ export function createMessageService(deps = {}) {
 
     await linkMessageToRoom(roomId, newMessage._id);
 
-    return Message.findById(newMessage._id)
-      .populate('nguoiGuiId', SENDER_FIELDS)
-      .populate('roomId', ROOM_FIELDS);
+    return maybeLean(
+      Message.findById(newMessage._id)
+        .populate('nguoiGuiId', SENDER_FIELDS)
+        .populate('roomId', ROOM_FIELDS),
+    );
   }
 
   async function assertOwnership(id, userId, forbiddenMessage) {
@@ -154,29 +214,33 @@ export function createMessageService(deps = {}) {
     const updateData = { trangThai: 'edited' };
     if (noiDungMoi) updateData.noiDung = noiDungMoi;
     if (tapTin) updateData.tapTin = tapTin;
-    return populateMessage(Message.findByIdAndUpdate(id, updateData, { new: true }));
+    return maybeLean(populateMessage(Message.findByIdAndUpdate(id, updateData, { new: true })));
   }
 
   async function deleteMessage(id, userId) {
     await assertOwnership(id, userId, 'Không có quyền xóa tin nhắn');
-    return Message.findByIdAndUpdate(
-      id,
-      { noiDung: '[deleted]', trangThai: 'deleted' },
-      { new: true },
-    )
-      .populate('nguoiGuiId', SENDER_FIELDS)
-      .populate('roomId', ROOM_FIELDS);
+    return maybeLean(
+      Message.findByIdAndUpdate(
+        id,
+        { noiDung: '[deleted]', trangThai: 'deleted' },
+        { new: true },
+      )
+        .populate('nguoiGuiId', SENDER_FIELDS)
+        .populate('roomId', ROOM_FIELDS),
+    );
   }
 
   async function recallMessage(id, userId) {
     await assertOwnership(id, userId, 'Không có quyền thu hồi tin nhắn');
-    return Message.findByIdAndUpdate(
-      id,
-      { noiDung: '[Tin nhắn đã được thu hồi]', trangThai: 'recalled' },
-      { new: true },
-    )
-      .populate('nguoiGuiId', SENDER_FIELDS)
-      .populate('roomId', ROOM_FIELDS);
+    return maybeLean(
+      Message.findByIdAndUpdate(
+        id,
+        { noiDung: '[Tin nhắn đã được thu hồi]', trangThai: 'recalled' },
+        { new: true },
+      )
+        .populate('nguoiGuiId', SENDER_FIELDS)
+        .populate('roomId', ROOM_FIELDS),
+    );
   }
 
   async function markAsRead(id, userId) {
@@ -186,13 +250,16 @@ export function createMessageService(deps = {}) {
       message.daDoc.push(userId);
       await message.save();
     }
-    return Message.findById(id)
-      .populate('nguoiGuiId', SENDER_FIELDS)
-      .populate('roomId', ROOM_FIELDS);
+    return maybeLean(
+      Message.findById(id)
+        .populate('nguoiGuiId', SENDER_FIELDS)
+        .populate('roomId', ROOM_FIELDS),
+    );
   }
 
-  async function searchMessages({ roomId, keyword, startDate, endDate }, userId) {
+  async function searchMessages({ roomId, keyword, startDate, endDate, limit, page }, userId) {
     await checkRoomAccess(roomId, userId);
+    const { limitNum, pageNum, skip } = parseMessagePagination({ limit, page });
     const query = { roomId };
     if (keyword) query.noiDung = { $regex: keyword, $options: 'i' };
     if (startDate || endDate) {
@@ -200,10 +267,24 @@ export function createMessageService(deps = {}) {
       if (startDate) query.createdAt.$gte = new Date(startDate);
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
-    return Message.find(query)
-      .populate('nguoiGuiId', SENDER_FIELDS)
-      .populate('roomId', ROOM_FIELDS)
-      .sort({ createdAt: 1 });
+
+    let findQuery = Message.find(query).sort({ createdAt: -1 });
+    if (typeof findQuery.skip === 'function') findQuery = findQuery.skip(skip);
+    if (typeof findQuery.limit === 'function') findQuery = findQuery.limit(limitNum);
+
+    const [data, total] = await Promise.all([
+      maybeLean(populateMessage(findQuery)),
+      Message.countDocuments(query),
+    ]);
+    return {
+      data,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    };
   }
 
   async function assertRoomAdmin(roomId, userId, forbiddenMessage) {
@@ -230,7 +311,6 @@ export function createMessageService(deps = {}) {
     await room.save();
   }
 
-  // ── Socket helpers (giữ chữ ký cũ, dùng chung logic) ──
   async function socketCreateMessage(data, io) {
     const newMsg = await Message.create({
       ...data,
@@ -239,9 +319,11 @@ export function createMessageService(deps = {}) {
     });
     await linkMessageToRoom(data.roomId, newMsg._id);
 
-    const populatedMsg = await Message.findById(newMsg._id)
-      .populate('nguoiGuiId', SENDER_FIELDS)
-      .populate('roomId', ROOM_FIELDS);
+    const populatedMsg = await maybeLean(
+      Message.findById(newMsg._id)
+        .populate('nguoiGuiId', SENDER_FIELDS)
+        .populate('roomId', ROOM_FIELDS),
+    );
 
     if (io) io.to(String(data.roomId)).emit('newMessage', populatedMsg);
     return newMsg;

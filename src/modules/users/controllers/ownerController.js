@@ -3,8 +3,8 @@ import { responseApi } from '#config/response.js';
 import { asyncHandler } from '#shared/http/asyncHandler.js';
 
 const getOwners = asyncHandler(async (req, res) => {
-  const owners = await ownerService.getOwners();
-  return responseApi(res, 200, owners, 'Get owners successfully');
+  const result = await ownerService.getOwners(req.query);
+  return responseApi(res, 200, result, 'Get owners successfully');
 });
 
 const getOwnerById = asyncHandler(async (req, res) => {

@@ -8,13 +8,13 @@ const favoriteController = {
   }),
 
   getFavoritesByUser: asyncHandler(async (req, res) => {
-    const favorites = await favoriteService.getFavoritesByUser(req.params.userId);
-    return res.status(200).json(favorites);
+    const result = await favoriteService.getFavoritesByUser(req.params.userId, req.query);
+    return res.status(200).json(result);
   }),
 
   getAllFavorites: asyncHandler(async (req, res) => {
-    const favorites = await favoriteService.getAllFavorites();
-    return res.status(200).json(favorites);
+    const result = await favoriteService.getAllFavorites(req.query);
+    return res.status(200).json(result);
   }),
 
   deleteFavorite: asyncHandler(async (req, res) => {

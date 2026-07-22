@@ -26,15 +26,15 @@ function removeLocalAvatar(anhDaiDien) {
 
 const userController = {
   getAllUser: asyncHandler(async (req, res) => {
-    const users = await userService.getAllUser();
-    return res.status(200).json({ message: 'get all users success', users });
+    const result = await userService.getAllUser(req.query);
+    return res.status(200).json({ message: 'get all users success', ...result });
   }),
 
   getAllUsers: asyncHandler(async (req, res) => {
-    const users = await userService.getAllUsers();
+    const result = await userService.getAllUsers(req.query);
     return res.status(200).json({
       message: 'Lấy danh sách tất cả người dùng thành công',
-      users,
+      ...result,
     });
   }),
 

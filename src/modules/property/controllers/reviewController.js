@@ -3,8 +3,12 @@ import { asyncHandler } from '#shared/http/asyncHandler.js';
 
 const reviewController = {
   getAllReviews: asyncHandler(async (req, res) => {
-    const reviews = await reviewService.getAllReviews();
-    return res.status(200).json({ message: 'get successful review list', reviews });
+    const result = await reviewService.getAllReviews(req.query);
+    return res.status(200).json({
+      message: 'get successful review list',
+      reviews: result.data,
+      pagination: result.pagination,
+    });
   }),
 
   getReviewById: asyncHandler(async (req, res) => {
@@ -13,13 +17,21 @@ const reviewController = {
   }),
 
   getReviewsByProperty: asyncHandler(async (req, res) => {
-    const reviews = await reviewService.getReviewsByProperty(req.params.propertyId);
-    return res.status(200).json({ message: 'Get review by property successfully', reviews });
+    const result = await reviewService.getReviewsByProperty(req.params.propertyId, req.query);
+    return res.status(200).json({
+      message: 'Get review by property successfully',
+      reviews: result.data,
+      pagination: result.pagination,
+    });
   }),
 
   getReviewsByUser: asyncHandler(async (req, res) => {
-    const reviews = await reviewService.getReviewsByUser(req.params.userId);
-    return res.status(200).json({ message: 'Get review by user successfully', reviews });
+    const result = await reviewService.getReviewsByUser(req.params.userId, req.query);
+    return res.status(200).json({
+      message: 'Get review by user successfully',
+      reviews: result.data,
+      pagination: result.pagination,
+    });
   }),
 
   createReview: asyncHandler(async (req, res) => {

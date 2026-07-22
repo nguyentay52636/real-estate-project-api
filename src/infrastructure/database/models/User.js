@@ -54,6 +54,9 @@ nguoiDungSchema.methods = {
 // Index để tối ưu performance cho Facebook login
 nguoiDungSchema.index({ facebookId: 1 });
 nguoiDungSchema.index({ email: 1, facebookId: 1 });
+nguoiDungSchema.index({ vaiTro: 1, createdAt: -1 });
+nguoiDungSchema.index({ trangThai: 1, vaiTro: 1 });
+nguoiDungSchema.index({ resetPasswordToken: 1 });
 
 // Pre-save middleware để ensure tenDangNhap is never null or empty
 nguoiDungSchema.pre("save", function (next) {

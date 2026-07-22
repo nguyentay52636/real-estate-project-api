@@ -1,7 +1,11 @@
 import logger from '#shared/utils/logger.js';
 import { getAllActive } from './crmKnowledgeService.js';
+import { cacheGet, cacheSet, cacheDel } from '#infra/cache/redisCache.js';
 
 const CACHE_TTL_MS = parseInt(process.env.CRM_CATALOG_CACHE_MS || '30000', 10);
+const CACHE_TTL_SEC = Math.max(1, Math.ceil(CACHE_TTL_MS / 1000));
+const REDIS_CATALOG_KEY = 'crm:catalog';
+const REDIS_EMBED_KEY = 'crm:catalog:embeddings';
 
 let cache = { items: null, fetchedAt: 0 };
 let embeddingCache = { items: null, fetchedAt: 0 };
@@ -19,20 +23,27 @@ function getCatalogApiUrl() {
 function clearCatalogCache() {
   cache = { items: null, fetchedAt: 0 };
   embeddingCache = { items: null, fetchedAt: 0 };
+  cacheDel(REDIS_CATALOG_KEY);
+  cacheDel(REDIS_EMBED_KEY);
 }
 
-/**
- * Catalog kèm embedding — gọi DB trực tiếp (không qua HTTP catalog công khai,
- * vốn luôn strip embedding) để dùng cho semantic search nội bộ.
- */
 async function fetchCatalogWithEmbeddings({ bypassCache = false } = {}) {
   const now = Date.now();
   if (!bypassCache && embeddingCache.items && now - embeddingCache.fetchedAt < CACHE_TTL_MS) {
     return embeddingCache.items;
   }
 
+  if (!bypassCache) {
+    const redisCached = await cacheGet(REDIS_EMBED_KEY);
+    if (redisCached) {
+      embeddingCache = { items: redisCached, fetchedAt: now };
+      return redisCached;
+    }
+  }
+
   const items = await getAllActive({ includeEmbedding: true });
   embeddingCache = { items, fetchedAt: now };
+  await cacheSet(REDIS_EMBED_KEY, items, CACHE_TTL_SEC);
   return items;
 }
 
@@ -40,6 +51,14 @@ async function fetchCatalogFromApi({ bypassCache = false } = {}) {
   const now = Date.now();
   if (!bypassCache && cache.items && now - cache.fetchedAt < CACHE_TTL_MS) {
     return cache.items;
+  }
+
+  if (!bypassCache) {
+    const redisCached = await cacheGet(REDIS_CATALOG_KEY);
+    if (redisCached) {
+      cache = { items: redisCached, fetchedAt: now };
+      return redisCached;
+    }
   }
 
   const url = getCatalogApiUrl();
@@ -58,6 +77,7 @@ async function fetchCatalogFromApi({ bypassCache = false } = {}) {
     const items = Array.isArray(data.items) ? data.items : [];
 
     cache = { items, fetchedAt: now };
+    await cacheSet(REDIS_CATALOG_KEY, items, CACHE_TTL_SEC);
     logger.info(`[CatalogClient] Đã tải ${items.length} bài từ API catalog`);
 
     return items;
@@ -66,6 +86,7 @@ async function fetchCatalogFromApi({ bypassCache = false } = {}) {
 
     const items = await getAllActive();
     cache = { items, fetchedAt: now };
+    await cacheSet(REDIS_CATALOG_KEY, items, CACHE_TTL_SEC);
     return items;
   }
 }

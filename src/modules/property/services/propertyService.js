@@ -6,8 +6,17 @@ import {
   getDefaultCoordinates,
   isValidCoordinates,
 } from '#shared/utils/geoUtils.js';
+import { maybeLean, maybeSelect } from '#shared/utils/queryHelpers.js';
+import {
+  cacheGetOrSet,
+  cacheDel,
+  cacheDelByPrefix,
+  hashKey,
+} from '#infra/cache/redisCache.js';
 
 const CHU_NHA_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
+const LIST_SELECT =
+  'tieuDe slug loaiBds loaiGiaoDich gia dienTich diaChi tinhThanh quanHuyen duAn toaDo anhDaiDien phongNgu phongTam choDauXe trangThai nguoiDungId badge subtitle overlay createdAt updatedAt';
 const VALID_STATUSES = ['cho_duyet', 'dang_hoat_dong', 'da_cho_thue', 'da_ban'];
 const VALID_TRANSACTION_TYPES = ['ban', 'cho_thue'];
 
@@ -26,8 +35,44 @@ function buildPaginationMeta(total, pageNum, limitNum) {
   };
 }
 
-/** Populate chủ đăng tin + vai trò (chu_tro, …) */
+/** Escape regex special chars for case-insensitive exact-ish match */
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Exact location filter (case-insensitive, anchored) — uses indexes better than unanchored /i */
+function locationEquals(value) {
+  return { $regex: new RegExp(`^${escapeRegex(String(value).trim())}$`, 'i') };
+}
+
+function applySearchFilter(filter, search) {
+  if (!search || !String(search).trim()) return;
+  const term = String(search).trim();
+  // Prefer text index when available; fallback $or for short queries
+  if (term.length >= 2) {
+    filter.$text = { $search: term };
+  } else {
+    filter.$or = [
+      { tieuDe: { $regex: new RegExp(escapeRegex(term), 'i') } },
+      { diaChi: { $regex: new RegExp(escapeRegex(term), 'i') } },
+    ];
+  }
+}
+
+/** Approximate bounding box for radius (km) to prefilter in Mongo */
+function bboxFilter(centerLat, centerLng, radiusKm) {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos((centerLat * Math.PI) / 180) || 1);
+  return {
+    'toaDo.lat': { $gte: centerLat - latDelta, $lte: centerLat + latDelta },
+    'toaDo.lng': { $gte: centerLng - lngDelta, $lte: centerLng + lngDelta },
+  };
+}
+
 function populateChuNha(query) {
+  if (!query || typeof query.populate !== 'function') {
+    return query;
+  }
   return query.populate({
     path: 'nguoiDungId',
     select: CHU_NHA_FIELDS,
@@ -35,10 +80,6 @@ function populateChuNha(query) {
   });
 }
 
-/**
- * Gắn field `chuNha` rõ nghĩa cho FE (liên hệ / đặt lịch với chủ đăng).
- * `nguoiDungId` vẫn giữ object đã populate để tương thích cũ.
- */
 function toPropertyResponse(doc) {
   if (!doc) return null;
   const property = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
@@ -61,8 +102,46 @@ export function createPropertyService(deps = {}) {
 
   async function listWithPagination(filter, query, sortOptions = { createdAt: -1 }) {
     const { pageNum, limitNum, skip } = parsePagination(query);
+    const hasText = Boolean(filter.$text);
+    const sort = hasText
+      ? { score: { $meta: 'textScore' }, ...sortOptions }
+      : sortOptions;
+
+    const selectFields = hasText
+      ? {
+          tieuDe: 1,
+          slug: 1,
+          loaiBds: 1,
+          loaiGiaoDich: 1,
+          gia: 1,
+          dienTich: 1,
+          diaChi: 1,
+          tinhThanh: 1,
+          quanHuyen: 1,
+          duAn: 1,
+          toaDo: 1,
+          anhDaiDien: 1,
+          phongNgu: 1,
+          phongTam: 1,
+          choDauXe: 1,
+          trangThai: 1,
+          nguoiDungId: 1,
+          badge: 1,
+          subtitle: 1,
+          overlay: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          score: { $meta: 'textScore' },
+        }
+      : LIST_SELECT;
+
+    let findQuery = populateChuNha(maybeSelect(Property.find(filter), selectFields));
+    if (typeof findQuery?.sort === 'function') findQuery = findQuery.sort(sort);
+    if (typeof findQuery?.skip === 'function') findQuery = findQuery.skip(skip);
+    if (typeof findQuery?.limit === 'function') findQuery = findQuery.limit(limitNum);
+
     const [rows, total] = await Promise.all([
-      populateChuNha(Property.find(filter)).sort(sortOptions).skip(skip).limit(limitNum),
+      maybeLean(findQuery),
       Property.countDocuments(filter),
     ]);
     return {
@@ -72,7 +151,7 @@ export function createPropertyService(deps = {}) {
     };
   }
 
-  async function getAllProperties(query = {}) {
+  function buildListFilter(query = {}) {
     const {
       loaiBds,
       loaiGiaoDich,
@@ -82,11 +161,6 @@ export function createPropertyService(deps = {}) {
       giaMin,
       giaMax,
       search,
-      lat,
-      lng,
-      radius,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
     } = query;
 
     const filter = {};
@@ -101,20 +175,40 @@ export function createPropertyService(deps = {}) {
       filter.loaiGiaoDich = loaiGiaoDich;
     }
     if (trangThai) filter.trangThai = trangThai;
-    if (tinhThanh) filter.tinhThanh = { $regex: new RegExp(tinhThanh, 'i') };
-    if (quanHuyen) filter.quanHuyen = { $regex: new RegExp(quanHuyen, 'i') };
+    if (tinhThanh) filter.tinhThanh = locationEquals(tinhThanh);
+    if (quanHuyen) filter.quanHuyen = locationEquals(quanHuyen);
     if (giaMin || giaMax) {
       filter.gia = {};
       if (giaMin) filter.gia.$gte = Number(giaMin);
       if (giaMax) filter.gia.$lte = Number(giaMax);
     }
-    if (search) {
-      filter.$or = [
-        { tieuDe: { $regex: new RegExp(search, 'i') } },
-        { diaChi: { $regex: new RegExp(search, 'i') } },
-      ];
-    }
+    applySearchFilter(filter, search);
+    return filter;
+  }
 
+  async function invalidatePropertyCache(slug) {
+    await cacheDelByPrefix('property:list:');
+    await cacheDelByPrefix('property:related:');
+    if (slug) await cacheDel(`property:slug:${slug}`);
+  }
+
+  async function getAllProperties(query = {}) {
+    const cacheKey = `property:list:${hashKey(query)}`;
+    return cacheGetOrSet(cacheKey, Number(process.env.CACHE_TTL_PROPERTY_LIST || 45), () =>
+      getAllPropertiesUncached(query),
+    );
+  }
+
+  async function getAllPropertiesUncached(query = {}) {
+    const {
+      lat,
+      lng,
+      radius,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
+
+    const filter = buildListFilter(query);
     const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
     const hasLat = lat !== undefined && lat !== null && lat !== '';
@@ -139,7 +233,17 @@ export function createPropertyService(deps = {}) {
         throw new AppError('Tọa độ hoặc bán kính không hợp lệ', 400);
       }
 
-      const rows = await populateChuNha(Property.find(filter)).sort(sortOptions);
+      Object.assign(filter, bboxFilter(centerLat, centerLng, radiusKm));
+
+      const { pageNum, limitNum, skip } = parsePagination(query);
+      // Cap candidates fetched for Haversine (avoid full collection)
+      const candidateLimit = Math.min(500, Math.max(limitNum * 10, 100));
+
+      let geoQuery = populateChuNha(maybeSelect(Property.find(filter), LIST_SELECT));
+      if (typeof geoQuery?.sort === 'function') geoQuery = geoQuery.sort(sortOptions);
+      if (typeof geoQuery?.limit === 'function') geoQuery = geoQuery.limit(candidateLimit);
+
+      const rows = await maybeLean(geoQuery);
       const mapped = mapPropertyList(rows);
 
       const matched = [];
@@ -162,7 +266,6 @@ export function createPropertyService(deps = {}) {
         }
       }
 
-      const { pageNum, limitNum, skip } = parsePagination(query);
       const total = matched.length;
       const paginatedData = matched.slice(skip, skip + limitNum);
 
@@ -200,14 +303,13 @@ export function createPropertyService(deps = {}) {
   }
 
   async function getPropertyById(id) {
-    const property = await populateChuNha(Property.findById(id));
+    const property = await maybeLean(populateChuNha(Property.findById(id)));
     if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
     return toPropertyResponse(property);
   }
 
-
   async function getRelatedProperties(id, { limit = 6 } = {}) {
-    const current = await Property.findById(id).lean();
+    const current = await maybeLean(Property.findById(id));
     if (!current) throw new AppError('Không tìm thấy bất động sản', 404);
 
     const maxItems = Math.min(12, Math.max(1, parseInt(limit, 10) || 6));
@@ -218,23 +320,17 @@ export function createPropertyService(deps = {}) {
     const priceLow = current.gia * 0.8;
     const priceHigh = current.gia * 1.2;
 
-    // Các tầng ưu tiên. Mỗi tầng là 1 filter; chỉ chạy khi còn thiếu.
     const tiers = [];
 
-    // Tầng 1: cùng dự án + giá trong khoảng ±20%
     if (current.duAn) {
       tiers.push({
         duAn: current.duAn,
         gia: { $gte: priceLow, $lte: priceHigh },
       });
-      // Tầng 2: cùng dự án (giá bất kỳ)
       tiers.push({ duAn: current.duAn });
     }
 
-    // Tầng 3: cùng loại BĐS + cùng quận/huyện
     tiers.push({ loaiBds: current.loaiBds, quanHuyen: current.quanHuyen });
-
-    // Tầng 4: cùng tỉnh/thành + cùng loại BĐS
     tiers.push({ tinhThanh: current.tinhThanh, loaiBds: current.loaiBds });
 
     for (const tierFilter of tiers) {
@@ -250,9 +346,11 @@ export function createPropertyService(deps = {}) {
         filter.loaiGiaoDich = current.loaiGiaoDich;
       }
 
-      const rows = await populateChuNha(Property.find(filter))
-        .sort({ createdAt: -1 })
-        .limit(remaining);
+      let relatedQuery = populateChuNha(maybeSelect(Property.find(filter), LIST_SELECT));
+      if (typeof relatedQuery?.sort === 'function') relatedQuery = relatedQuery.sort({ createdAt: -1 });
+      if (typeof relatedQuery?.limit === 'function') relatedQuery = relatedQuery.limit(remaining);
+
+      const rows = await maybeLean(relatedQuery);
 
       for (const row of rows) {
         const key = String(row._id);
@@ -265,7 +363,6 @@ export function createPropertyService(deps = {}) {
 
     const currentDuAn = current.duAn || null;
 
-    // Sắp xếp theo mức độ liên quan: cùng dự án → giá gần → diện tích gần → mới nhất
     const sorted = [...collected.values()].sort((a, b) => {
       const aSameDuAn = currentDuAn && a.duAn === currentDuAn ? 1 : 0;
       const bSameDuAn = currentDuAn && b.duAn === currentDuAn ? 1 : 0;
@@ -285,7 +382,9 @@ export function createPropertyService(deps = {}) {
   }
 
   async function getPropertyAuthor(id) {
-    const property = await populateChuNha(Property.findById(id));
+    const property = await maybeLean(
+      populateChuNha(maybeSelect(Property.findById(id), 'tieuDe slug nguoiDungId')),
+    );
     if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
     if (!property.nguoiDungId) {
       throw new AppError('Không tìm thấy chủ nhà đăng tin', 404);
@@ -301,13 +400,15 @@ export function createPropertyService(deps = {}) {
   }
 
   async function getPropertyBySlug(slug) {
-    const property = await populateChuNha(Property.findOne({ slug }));
-    if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
-    return toPropertyResponse(property);
+    return cacheGetOrSet(`property:slug:${slug}`, Number(process.env.CACHE_TTL_PROPERTY_SLUG || 180), async () => {
+      const property = await maybeLean(populateChuNha(Property.findOne({ slug })));
+      if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
+      return toPropertyResponse(property);
+    });
   }
 
   async function getPropertiesByDistrict(district, query = {}) {
-    const filter = { quanHuyen: { $regex: new RegExp(district, 'i') } };
+    const filter = { quanHuyen: locationEquals(district) };
     const { data, pagination, total } = await listWithPagination(filter, query);
     if (total === 0) {
       throw new AppError('Không tìm thấy bất động sản tại quận/huyện này', 404);
@@ -318,57 +419,25 @@ export function createPropertyService(deps = {}) {
   async function getPropertiesByUser(userId, query = {}) {
     if (!userId) throw new AppError('Thiếu userId', 400);
 
-    const user = await User.findById(userId).select('_id');
+    const user = await maybeLean(User.findById(userId).select('_id'));
     if (!user) throw new AppError('Không tìm thấy người dùng', 404);
 
     const {
-      loaiBds,
-      loaiGiaoDich,
-      trangThai,
-      tinhThanh,
-      quanHuyen,
-      giaMin,
-      giaMax,
-      search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
-      // public=true (mặc định): chỉ tin đang hiển thị; public=false: mọi trạng thái
       public: publicOnly,
+      trangThai,
     } = query;
 
-    const filter = { nguoiDungId: userId };
+    const filter = buildListFilter(query);
+    filter.nguoiDungId = userId;
 
-    // Public profile: mặc định chỉ dang_hoat_dong (trừ khi client gửi trangThai hoặc public=false)
     const wantAll =
       publicOnly === 'false' || publicOnly === false || publicOnly === '0';
     if (trangThai) {
       filter.trangThai = trangThai;
     } else if (!wantAll) {
       filter.trangThai = 'dang_hoat_dong';
-    }
-
-    if (loaiBds) filter.loaiBds = loaiBds;
-    if (loaiGiaoDich) {
-      if (!VALID_TRANSACTION_TYPES.includes(loaiGiaoDich)) {
-        throw new AppError(
-          `Loại giao dịch không hợp lệ. Chỉ chấp nhận: ${VALID_TRANSACTION_TYPES.join(', ')}`,
-          400,
-        );
-      }
-      filter.loaiGiaoDich = loaiGiaoDich;
-    }
-    if (tinhThanh) filter.tinhThanh = { $regex: new RegExp(tinhThanh, 'i') };
-    if (quanHuyen) filter.quanHuyen = { $regex: new RegExp(quanHuyen, 'i') };
-    if (giaMin || giaMax) {
-      filter.gia = {};
-      if (giaMin) filter.gia.$gte = Number(giaMin);
-      if (giaMax) filter.gia.$lte = Number(giaMax);
-    }
-    if (search) {
-      filter.$or = [
-        { tieuDe: { $regex: new RegExp(search, 'i') } },
-        { diaChi: { $regex: new RegExp(search, 'i') } },
-      ];
     }
 
     const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
@@ -381,7 +450,7 @@ export function createPropertyService(deps = {}) {
       throw new AppError('Thiếu nguoiDungId (ID chủ đăng tin)', 400);
     }
 
-    const user = await User.findById(nguoiDungId).populate('vaiTro', 'ten');
+    const user = await maybeLean(User.findById(nguoiDungId).populate('vaiTro', 'ten'));
     if (!user) throw new AppError('Không tìm thấy người dùng', 404);
 
     if (user.trangThai === 'khoa') {
@@ -389,7 +458,6 @@ export function createPropertyService(deps = {}) {
     }
 
     const roleName = user.vaiTro?.ten;
-    // API quản lý bài cho phép chủ trọ, nhân viên và admin.
     if (!['chu_tro', 'nhan_vien', 'admin'].includes(roleName)) {
       throw new AppError(
         'Chỉ tài khoản vai trò chu_tro, nhan_vien hoặc admin mới được đăng tin',
@@ -400,7 +468,6 @@ export function createPropertyService(deps = {}) {
     return user;
   }
 
-  /** Body tạo/sửa tin: chỉ nhận field schema + nguoiDungId, bỏ chuNha/tacGia (chỉ có ở response). */
   function sanitizePropertyInput(input = {}) {
     const {
       chuNha: _chuNha,
@@ -432,12 +499,12 @@ export function createPropertyService(deps = {}) {
 
     const newProperty = new Property(payload);
     const saved = await newProperty.save();
+    await invalidatePropertyCache(saved.slug);
     return getPropertyById(saved._id);
   }
 
   async function updateProperty(id, input) {
     const payload = sanitizePropertyInput(input);
-    // Không cho đổi chủ tin qua update thường; nếu gửi nguoiDungId thì vẫn check role
     if (payload.nguoiDungId) {
       await assertCanPostProperty(payload.nguoiDungId);
     }
@@ -456,6 +523,7 @@ export function createPropertyService(deps = {}) {
       runValidators: true,
     });
     if (!updated) throw new AppError('Không tìm thấy bất động sản', 404);
+    await invalidatePropertyCache(updated.slug);
     return getPropertyById(updated._id);
   }
 
@@ -468,12 +536,14 @@ export function createPropertyService(deps = {}) {
     }
     const updated = await Property.findByIdAndUpdate(id, { trangThai }, { new: true });
     if (!updated) throw new AppError('Không tìm thấy bất động sản', 404);
+    await invalidatePropertyCache(updated.slug);
     return getPropertyById(updated._id);
   }
 
   async function deleteProperty(id) {
     const deleted = await Property.findByIdAndDelete(id);
     if (!deleted) throw new AppError('Không tìm thấy bất động sản', 404);
+    await invalidatePropertyCache(deleted.slug);
     return deleted;
   }
 

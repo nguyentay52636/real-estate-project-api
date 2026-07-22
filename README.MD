@@ -1,6 +1,15 @@
 # Real Estate Project API
 
-Backend API cho nền tảng **quản lý và cho thuê bất động sản**, hỗ trợ nhiều vai trò người dùng (admin, nhân viên, chủ trọ, người thuê), tin nhắn real-time qua Socket.IO, và tài liệu API qua Swagger.
+Backend API cho nền tảng **quản lý và cho thuê bất động sản** — REST + real-time (Socket.IO / WebSocket), AI tư vấn, CRM knowledge, và tài liệu OpenAPI (Swagger).
+
+| | |
+|---|---|
+| **Base URL** | `http://localhost:8000/api` |
+| **Swagger** | `http://localhost:8000/api-docs` |
+| **Kiến trúc** | Feature / Modular Monolith (ESM + import aliases `#`) |
+| **Runtime** | Node.js 18+ · Express 5 · MongoDB (Mongoose 8) |
+
+Chi tiết kiến trúc: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 
@@ -9,32 +18,38 @@ Backend API cho nền tảng **quản lý và cho thuê bất động sản**, h
 - [Tổng quan](#tổng-quan)
 - [Công nghệ](#công-nghệ)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+- [Import aliases](#import-aliases)
 - [Vai trò & phân quyền](#vai-trò--phân-quyền)
 - [Các module chức năng](#các-module-chức-năng)
-- [Mô hình dữ liệu](#mô-hình-dữ-liệu)
 - [API REST](#api-rest)
-- [Socket.IO (real-time)](#socketio-real-time)
+- [Mô hình dữ liệu](#mô-hình-dữ-liệu)
+- [Real-time](#real-time)
 - [Cài đặt & chạy](#cài-đặt--chạy)
 - [Biến môi trường](#biến-môi-trường)
-- [Tài liệu API](#tài-liệu-api)
+- [Scripts npm](#scripts-npm)
+- [Kiểm thử](#kiểm-thử)
+- [Tài liệu liên quan](#tài-liệu-liên-quan)
 
 ---
 
 ## Tổng quan
 
-Dự án là **REST API + WebSocket server** xây trên Node.js và Express 5, kết nối **MongoDB** qua Mongoose. Các tính năng chính:
+Dự án là **REST API + Socket.IO + AI WebSocket**, tổ chức theo domain trong `src/modules/*`. Mỗi module theo pattern:
+
+```
+routes → controller (HTTP) → service (nghiệp vụ + AppError) → models / infra
+```
 
 | Nhóm | Mô tả |
 |------|--------|
-| **Xác thực** | Đăng ký, đăng nhập, JWT access/refresh, quên/đặt lại mật khẩu, đăng nhập Facebook OAuth |
-| **Bất động sản** | CRUD tin đăng, lọc theo quận/huyện, gallery, tiện ích, trạng thái cho thuê |
-| **Người dùng & vai trò** | Quản lý user, admin/nhân viên/chủ trọ/khách hàng |
-| **Tương tác** | Yêu thích, đánh giá, lịch xem nhà |
-| **Chat** | Phòng chat 1-1 & nhóm, tin nhắn (text/file), gọi audio/video, thông báo |
-| **Real-time** | Socket.IO đồng bộ phòng, tin nhắn, trạng thái online |
-
-Base URL API: `http://localhost:8000/api`  
-Swagger UI: `http://localhost:8000/api-docs`
+| **Auth** | Đăng ký / đăng nhập / JWT / quên–đặt lại–đổi mật khẩu / Facebook OAuth |
+| **Users** | User, Role, Employee, Customer, Owner |
+| **Property** | Tin BĐS, property post, yêu thích, đánh giá, lịch xem, lead & behavior |
+| **Contact** | Form hỗ trợ (Liên hệ) — public gửi, admin/NV quản lý |
+| **Chat** | Phòng chat, tin nhắn, thông báo |
+| **AI** | Chat tư vấn, handoff nhân viên, CRM knowledge + vector search |
+| **Upload** | Upload ảnh / media (Cloudinary + local) |
+| **Real-time** | Socket.IO (chat) + AI WebSocket (`/ws`) |
 
 ---
 
@@ -42,16 +57,17 @@ Swagger UI: `http://localhost:8000/api-docs`
 
 | Thành phần | Thư viện |
 |------------|----------|
-| Runtime | Node.js |
+| Runtime | Node.js (ESM) |
 | Framework | Express 5 |
 | Database | MongoDB + Mongoose 8 |
 | Auth | JWT, bcrypt, Passport (Facebook) |
-| Real-time | Socket.IO 4 |
-| Upload | Multer (`uploads/`) |
+| Real-time | Socket.IO 4, `ws` |
+| Upload | Multer, Cloudinary |
 | Email | Nodemailer (Gmail SMTP) |
-| API docs | Swagger (swagger-jsdoc, swagger-ui-express) |
+| AI | OpenRouter SDK, `@google/generative-ai` (tùy chọn) |
+| API docs | swagger-jsdoc, swagger-ui-express |
 | Validation | Joi |
-| Khác | cors, cookie-parser, express-session, express-rate-limit, crypto-js |
+| Khác | cors, cookie-parser, express-session, express-rate-limit |
 
 ---
 
@@ -59,125 +75,186 @@ Swagger UI: `http://localhost:8000/api-docs`
 
 ```
 real-estate-project-api/
-├── index.js                 # Entry: HTTP server, CORS, session, routes, Socket
-├── config/
-│   ├── db.js                # Kết nối MongoDB
-│   ├── passport.js          # Facebook OAuth strategy
-│   └── response.js          # Chuẩn hóa response
-├── controllers/             # Logic nghiệp vụ theo module
-├── models/                  # Mongoose schemas
-├── routes/                  # Định tuyến REST → /api/*
-├── middleware/
-│   ├── authValidation.js    # Validate input (Joi)
-│   └── upload.js            # Upload ảnh/video/PDF
-├── socket/
-│   └── SocketServer.js      # Socket.IO events & JWT middleware
-├── swagger/                 # Mô tả OpenAPI từng module
-├── services/
-│   └── facebook.services.js # Tích hợp Facebook Graph API
-└── utils/
-    ├── jwt.js               # Access & refresh token
-    └── sendMail.js          # Gửi mail reset password
+├── index.js                      # Entry mỏng → src/server.js
+├── package.json                  # "type": "module" + imports aliases
+├── .env / .env.example
+├── images/                       # Static uploads local (serve /images)
+├── docs/                         # Kiến trúc, AI, FE prompts, API notes
+├── scripts/                      # Seed CRM, embeddings, coordinates
+├── tests/unit/                   # Unit tests (node:test)
+└── src/
+    ├── app.js                    # Express: CORS, session, /api, Swagger, errorHandler
+    ├── server.js                 # HTTP + Socket + graceful shutdown
+    ├── config/                   # env, db, passport, response
+    ├── shared/
+    │   ├── errors/AppError.js
+    │   ├── http/asyncHandler.js
+    │   ├── middleware/           # auth, authorizeRoles, errorHandler, optionalAuth
+    │   └── utils/                # jwt, sendMail, emailTemplates, corsOrigins, …
+    ├── infrastructure/
+    │   ├── database/models/      # Mongoose schemas
+    │   ├── realtime/             # Socket.IO handlers + AI WS
+    │   └── storage/              # Cloudinary / local upload
+    ├── modules/
+    │   ├── auth/
+    │   ├── users/
+    │   ├── property/
+    │   ├── contact/
+    │   ├── chat/
+    │   ├── ai/
+    │   ├── upload/
+    │   └── index.routes.js       # Gom router → /api/*
+    └── docs/swagger/             # OpenAPI theo module
+```
+
+---
+
+## Import aliases
+
+Khai báo trong `package.json` → `imports`:
+
+| Alias | Path |
+|-------|------|
+| `#config/*` | `src/config/*` |
+| `#shared/*` | `src/shared/*` |
+| `#models/*` | `src/infrastructure/database/models/*` |
+| `#infra/*` | `src/infrastructure/*` |
+| `#modules/*` | `src/modules/*` |
+| `#docs/*` | `src/docs/*` |
+
+Ví dụ:
+
+```js
+import User from '#models/User.js';
+import { AppError } from '#shared/errors/AppError.js';
+import authService from '#modules/auth/services/authService.js';
 ```
 
 ---
 
 ## Vai trò & phân quyền
 
-Model `VaiTro` định nghĩa 4 vai trò:
+Model `Role` (`VaiTro`) — 4 vai trò chính:
 
 | `ten` | Mô tả |
 |-------|--------|
 | `admin` | Quản trị hệ thống |
-| `nhan_vien` | Nhân viên sale / hỗ trợ (phòng ban, chức vụ trong `NhanVien`) |
-| `chu_tro` | Chủ nhà — quản lý danh sách BĐS, thu nhập (`ChuNha`) |
-| `nguoi_thue` | Khách thuê — hồ sơ khách hàng (`KhachHang`) |
+| `nhan_vien` | Nhân viên sale / hỗ trợ |
+| `chu_tro` | Chủ nhà — quản lý tin BĐS |
+| `nguoi_thue` | Người thuê / khách hàng |
 
-Middleware `verifyToken` xác thực JWT qua header `token` hoặc `Authorization: Bearer <token>`. Một số route có thêm `verifyTokenAndAdminAuth`.
+**Auth middleware** (`#shared/middleware/auth.js`):
+
+- `verifyToken` — JWT qua header `Authorization: Bearer <token>` hoặc `token`
+- `verifyTokenAndAdminAuth` — admin hoặc chính chủ resource
+- `authorizeRoles(...)` — giới hạn theo tên vai trò
+
+Đăng ký công khai chỉ cho phép `nguoi_thue` / `chu_tro`. Role nội bộ (`admin`, `nhan_vien`) do admin tạo.
 
 ---
 
 ## Các module chức năng
 
-### 1. Authentication (`/api/auth`)
+### 1. Auth — `/api/auth`
 
-- **Đăng ký / đăng nhập / đăng xuất** — hash mật khẩu bcrypt, phát JWT access (15 phút) và refresh (365 ngày), lưu `RefreshToken`
-- **Quên mật khẩu** — token reset qua email (Nodemailer)
-- **Facebook OAuth** — Passport strategy; callback redirect về `CLIENT_URL` (tùy chọn khi có `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET`)
-- Endpoint debug/test cấu hình Facebook
+| Method | Path | Mô tả |
+|--------|------|--------|
+| `POST` | `/register` | Đăng ký |
+| `POST` | `/login` | Đăng nhập (access JWT + refresh cookie) |
+| `POST` | `/logout` | Đăng xuất |
+| `PATCH` | `/forgot-password` | Quên MK — gửi email chứa link reset |
+| `PATCH` | `/reset-password` | Đặt lại MK bằng token từ email |
+| `PATCH` | `/password` | Đổi MK (cần Bearer token) |
+| `GET` | `/facebook` … | OAuth Facebook (khi đủ env) |
 
-### 2. Bất động sản (`/api/property`)
+Alias cũ vẫn hoạt động: `POST /forgotPassword`, `POST /resetPassword`.
 
-Quản lý model `BatDongSan`:
+Email reset dùng template HTML (`src/shared/utils/emailTemplates/`). Cần `EMAIL_NAME` + `EMAIL_PASSWORD` (Gmail App Password).
 
-- Loại: `can_ho`, `nha_nguyen_can`, `studio`, `penthouse`
-- Thông tin: giá, diện tích, địa chỉ, tỉnh/thành, quận/huyện, phòng ngủ/tắm, chỗ đậu xe
-- Media: `anhDaiDien`, `gallery`, `features`, `overlay`
-- Trạng thái: `dang_hoat_dong`, `da_cho_thue`
-- CRUD + lọc theo quận/huyện (`GET /:district`)
+### 2. Users — `/api/user`, `/role`, `/employee`, `/customer`, `/owner`
 
-### 3. Người dùng (`/api/user`)
+| Prefix | Nghiệp vụ |
+|--------|-----------|
+| `/api/user` | CRUD tài khoản `User` |
+| `/api/role` | Danh sách vai trò |
+| `/api/employee` | Nhân viên (`vaiTro = nhan_vien`) + hồ sơ `Employee` |
+| `/api/customer` | Hồ sơ người thuê (`Customer`) |
+| `/api/owner` | Hồ sơ chủ nhà (`Owner`) |
 
-CRUD tài khoản `nguoiDung` (tên, email, tên đăng nhập, SĐT, vai trò, avatar, trạng thái `hoat_dong` / `khoa`).
+### 3. Property — `/api/property`, `/property-post`, `/favorite`, `/review`, `/viewing`, `/lead`
 
-### 4. Vai trò (`/api/role`)
+| Prefix | Nghiệp vụ |
+|--------|-----------|
+| `/api/property` (`/properties`) | CRUD / lọc tin BĐS (slug, district, related, author) |
+| `/api/property-post` | Tin đăng / duyệt trạng thái |
+| `/api/favorite` | Yêu thích |
+| `/api/review` | Đánh giá sao + bình luận |
+| `/api/viewing` | Lịch xem nhà |
+| `/api/lead` | Behavior tracking + lead scoring (xem tin → điểm lead) |
 
-`GET /` — danh sách vai trò hệ thống.
+Chi tiết lead/behavior: [`docs/FE_BEHAVIOR_LEAD_SYNC_PROMPT.md`](docs/FE_BEHAVIOR_LEAD_SYNC_PROMPT.md), [`docs/feature-lead-api.md`](docs/feature-lead-api.md).
 
-### 5. Chủ nhà (`/api/owner`)
+### 4. Contact — `/api/contact`
 
-Hồ sơ `ChuNha` gắn với `nguoiDung`: tổng BĐS, thu nhập, danh sách BĐS, điểm đánh giá trung bình. CRUD đầy đủ.
+Form hỗ trợ / liên hệ (`Contact`):
 
-### 6. Khách hàng (`/api/customer`)
+- **Public** `POST` — gửi yêu cầu
+- **Admin / nhân viên** `GET`, `PATCH` — danh sách & cập nhật trạng thái
 
-Hồ sơ `KhachHang`: địa chỉ, loại khách, chi tiêu, BĐS đang thuê/yêu thích, điểm đánh giá, ghi chú. CRUD đầy đủ.
+### 5. Chat — `/api/room`, `/message`, `/notification`
 
-### 7. Nhân viên (`/api/employee`)
+| Prefix | Nghiệp vụ |
+|--------|-----------|
+| `/api/room` | Phòng private / group, thành viên, admin |
+| `/api/message` | Tin nhắn text/file, đọc, ghim, thu hồi |
+| `/api/notification` | Thông báo chat |
 
-Quản lý `NhanVien`: phòng ban (`sale`, `ho_tro_khach_hang`, …), chức vụ, lương, hiệu suất, ngày vào làm, trạng thái. Hỗ trợ tìm kiếm.
+Real-time bổ sung qua Socket.IO (xem bên dưới).
 
-### 8. Yêu thích (`/api/favorite`)
+### 6. AI — `/api/ai-chat`, `/crm-knowledge`, `/crm-knowledge-catalog`
 
-Lưu/xóa BĐS yêu thích theo `nguoiDungId` + `batDongSanId` (`YeuThich`).
+| Prefix | Nghiệp vụ |
+|--------|-----------|
+| `/api/ai-chat` | Chat tư vấn + handoff sang nhân viên |
+| `/api/crm-knowledge` | Knowledge base + embedding / vector search |
+| `/api/crm-knowledge-catalog` | Catalog knowledge cho pipeline AI |
 
-### 9. Đánh giá (`/api/review`)
+Tài liệu: [`docs/CRM_AI_HUONG_DAN.md`](docs/CRM_AI_HUONG_DAN.md), [`docs/CRM_VECTOR_INDEX.md`](docs/CRM_VECTOR_INDEX.md).
 
-CRUD `DanhGia`: sao 1–5, bình luận, theo user hoặc BĐS.
+### 7. Upload — `/api/upload`
 
-### 10. Lịch xem nhà (`/api/viewing`)
+Upload ảnh / media (Cloudinary hoặc local → `images/`).
 
-CRUD `LichXemNha`: đặt lịch xem BĐS, trạng thái `cho_xac_nhan` | `da_xac_nhan` | `da_huy`.
+---
 
-### 11. Phòng chat (`/api/room`)
+## API REST
 
-- Phòng `private` (2 thành viên) hoặc `group`
-- Tạo phòng, tìm/tạo phòng riêng, thêm thành viên, rời phòng, chuyển admin
-- Gắn tin nhắn vào phòng, cập nhật/xóa phòng
+Tất cả route gắn prefix `/api` qua `src/modules/index.routes.js`:
 
-### 12. Tin nhắn (`/api/message`)
+| Prefix | Module |
+|--------|--------|
+| `/api/auth` | Auth |
+| `/api/user` | Users |
+| `/api/role` | Roles |
+| `/api/employee` | Employees |
+| `/api/customer` | Customers |
+| `/api/owner` | Owners |
+| `/api/property`, `/api/properties` | Properties |
+| `/api/property-post`, `/api/property-posts` | Property posts |
+| `/api/favorite` | Favorites |
+| `/api/review` | Reviews |
+| `/api/viewing` | Viewing schedules |
+| `/api/lead` | Leads & behavior |
+| `/api/contact` | Contact / support |
+| `/api/room` | Chat rooms |
+| `/api/message` | Messages |
+| `/api/notification` | Chat notifications |
+| `/api/ai-chat` | AI chat & handoff |
+| `/api/crm-knowledge` | CRM knowledge |
+| `/api/crm-knowledge-catalog` | CRM catalog |
+| `/api/upload` | Upload |
 
-- Lấy tin theo `roomId`, tạo/sửa/xóa/thu hồi tin
-- Upload tối đa 5 file (JPEG, PNG, MP4, PDF) qua Multer
-- Đánh dấu đã đọc, ghim/bỏ ghim, tìm kiếm trong phòng
-- Tin nhắn cuộc gọi (`loaiTinNhan`: `cuoc_goi`)
-
-### 13. Thông báo chat (`/api/notification`)
-
-`ThongBaoChat`: `new_message`, `room_update`, `call` — đọc/xóa từng hoặc toàn bộ, đếm chưa đọc.
-
-### 14. Socket.IO (`socket/SocketServer.js`)
-
-Bổ sung real-time cho chat (JWT trong `handshake.auth.token`):
-
-| Event | Chức năng |
-|-------|-----------|
-| `joinRoom` | Vào phòng, broadcast online/offline |
-| `room:create`, `room:findOrCreatePrivate`, `room:update`, `room:delete` | Quản lý phòng |
-| `addMember`, `leaveRoom`, `transferAdmin` | Thành viên & quyền admin |
-| `message:create`, `message:update`, `message:delete`, `message:read` | Tin nhắn |
-| `message:addToRoom`, `message:removeFromRoom` | Đồng bộ phòng ↔ tin |
-| `call:create` | Cuộc gọi audio/video |
-| `ping` | Giữ kết nối |
+Chi tiết request/response: **Swagger** tại `/api-docs`.
 
 ---
 
@@ -185,55 +262,40 @@ Bổ sung real-time cho chat (JWT trong `handshake.auth.token`):
 
 | Model | Mục đích |
 |-------|----------|
-| `nguoiDung` | Tài khoản đăng nhập |
-| `VaiTro` | Vai trò hệ thống |
-| `BatDongSan` | Tin bất động sản |
-| `ChuNha` | Hồ sơ chủ trọ |
-| `KhachHang` | Hồ sơ người thuê |
-| `NhanVien` | Hồ sơ nhân viên |
-| `YeuThich` | BĐS yêu thích |
-| `DanhGia` | Đánh giá BĐS |
-| `LichXemNha` | Lịch hẹn xem nhà |
-| `PhongChat` | Phòng chat |
-| `TinNhan` | Tin nhắn (text, file, reply, cuộc gọi) |
-| `ThongBaoChat` | Thông báo real-time |
+| `User` (`nguoiDung`) | Tài khoản đăng nhập |
+| `Role` (`VaiTro`) | Vai trò hệ thống |
+| `Owner` | Hồ sơ chủ nhà |
+| `Customer` | Hồ sơ người thuê |
+| `Employee` | Hồ sơ nhân viên |
+| `Property` | Tin bất động sản |
+| `Favorite` | BĐS yêu thích |
+| `Rating` | Đánh giá |
+| `ViewingSchedule` | Lịch xem nhà |
+| `PropertyBehavior` | Hành vi xem tin |
+| `PropertyLead` / `Lead` | Lead scoring |
+| `Contact` | Form liên hệ / hỗ trợ |
+| `ChatRoom` | Phòng chat |
+| `Message` | Tin nhắn |
+| `ChatNotification` / `Notification` | Thông báo |
+| `ChatTicket` | Ticket chat / handoff |
+| `CrmKnowledge` | Knowledge CRM + embedding |
 | `RefreshToken` | Refresh JWT |
-| `HopDongThue` | Hợp đồng thuê (schema sẵn) |
-| `PhieuDatCoc` | Phiếu đặt cọc (schema sẵn) |
-| `HinhAnh`, `TienIch`, `TinTuc`, `ThongBao`, `LienHe` | Mở rộng / liên kết |
 
 ---
 
-## API REST
+## Real-time
 
-Tất cả route gắn prefix `/api` (xem `routes/root.js`):
+### Socket.IO (chat)
 
-| Prefix | Module |
-|--------|--------|
-| `/api/auth` | Xác thực & Facebook |
-| `/api/property` | Bất động sản |
-| `/api/user` | Người dùng |
-| `/api/role` | Vai trò |
-| `/api/owner` | Chủ nhà |
-| `/api/customer` | Khách hàng |
-| `/api/employee` | Nhân viên |
-| `/api/favorite` | Yêu thích |
-| `/api/review` | Đánh giá |
-| `/api/viewing` | Lịch xem nhà |
-| `/api/room` | Phòng chat |
-| `/api/message` | Tin nhắn |
-| `/api/notification` | Thông báo chat |
+- Mount cùng HTTP server (`src/server.js` → `src/infrastructure/realtime/`)
+- CORS: origins từ `CLIENT_URL` / `CLIENT_URLS`
+- Auth: JWT access token (`handshake.auth.token` hoặc `Authorization`)
+- Events chính: `joinRoom`, `message:*`, `room:*`, `call:create`, `ping`, …
 
-Chi tiết request/response: **Swagger** tại `/api-docs` (file trong `swagger/*.swagger.js`).
+### AI WebSocket
 
----
-
-## Socket.IO (real-time)
-
-- Kết nối cùng HTTP server (`index.js` → `setupSocket(server)`)
-- CORS: localhost (3000, 5173, 8080) + `CLIENT_URL`
-- Xác thực: JWT access token (cùng `JWT_ACCESS_KEY` với REST)
-- Client gửi token: `socket.handshake.auth.token` hoặc header `Authorization`
+- Endpoint: `ws://localhost:8000/ws`
+- Dùng cho luồng chat AI / handoff realtime
 
 ---
 
@@ -241,38 +303,40 @@ Chi tiết request/response: **Swagger** tại `/api-docs` (file trong `swagger/
 
 ### Yêu cầu
 
-- Node.js 18+
+- Node.js **18+**
 - MongoDB (local hoặc Atlas)
+- (Tùy chọn) Cloudinary, Gmail App Password, OpenRouter key
 
 ### Các bước
 
 ```bash
-# Clone & cài dependency
 npm install
 
 # Tạo .env từ mẫu (nếu chưa có)
 npm run setup:env
 
-# Chỉnh .env — ít nhất DB_URL, JWT_ACCESS_KEY, JWT_REFRESH_SECRET
-```
-
-**MongoDB local (macOS Homebrew):**
-
-```bash
-brew tap mongodb/brew
-brew install mongodb-community
-brew services start mongodb-community
+# Điền tối thiểu: DB_URL, JWT_ACCESS_KEY, JWT_REFRESH_SECRET
+# Quên mật khẩu: EMAIL_NAME, EMAIL_PASSWORD
+# AI: OPEN_ROUTER_KEY
 ```
 
 ```bash
-# Chạy production mode
-npm run start
-
-# Chạy dev (auto-reload)
-npm run dev
+npm run start    # production
+npm run dev      # nodemon
 ```
 
-Server mặc định: **http://localhost:8000**
+Server mặc định: **http://localhost:8000**  
+Swagger: **http://localhost:8000/api-docs**
+
+### Thêm tính năng mới
+
+1. Tạo `src/modules/<domain>/{controllers,routes,services}`
+2. Đăng ký trong `src/modules/index.routes.js`
+3. Model (nếu cần) → `src/infrastructure/database/models/`
+4. Swagger (nếu cần) → `src/docs/swagger/`
+5. Unit test → `tests/unit/<domain>/`
+
+API public (`/api/...`) giữ ổn định khi chỉ tổ chức lại folder.
 
 ---
 
@@ -285,24 +349,24 @@ Sao chép `.env.example` → `.env`:
 | `DB_URL` | Có | Chuỗi kết nối MongoDB |
 | `JWT_ACCESS_KEY` | Có | Ký access token & Socket |
 | `JWT_REFRESH_SECRET` | Có | Ký refresh token |
+| `JWT_ACCESS_EXPIRES` | Không | TTL access (mặc định `7d`) |
+| `JWT_REFRESH_EXPIRES` | Không | TTL refresh (mặc định `365d`) |
 | `PORT` | Không | Mặc định `8000` |
-| `CLIENT_URL` | Không | CORS & redirect OAuth (mặc định `http://localhost:5173`) |
-| `BASE_URL` | Không | URL API (Facebook callback) |
+| `CLIENT_URL` | Không | Origin FE (CORS, OAuth, link email) — nhiều origin phân cách `,` |
+| `CLIENT_URLS` | Không | Origin CORS bổ sung |
+| `BASE_URL` | Không | URL API (Facebook callback, catalog) |
 | `SESSION_SECRET` | Không | Express session |
 | `NODE_ENV` | Không | `development` / `production` |
-| `EMAIL_NAME`, `EMAIL_PASSWORD` | Không | Gmail gửi reset password |
-| `URL_SERVER` | Không | Link reset password trong email |
+| `EMAIL_NAME`, `EMAIL_PASSWORD` | Không* | Gmail SMTP gửi reset password (*bắt buộc nếu dùng quên MK) |
+| `EMAIL_BRAND_NAME`, `EMAIL_BRAND_TAGLINE` | Không | Branding email |
 | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | Không | Đăng nhập Facebook |
-
----
-
-## Tài liệu API
-
-Sau khi chạy server, mở trình duyệt:
-
-**http://localhost:8000/api-docs**
-
-Swagger mô tả các endpoint auth, property, user, employee, customer, owner, favorite, review, viewing, message, room, notification và socket (tham chiếu).
+| `CLOUDINARY_*` | Không | Upload Cloudinary |
+| `OPEN_ROUTER_KEY` | Không* | AI chat / embedding (*bắt buộc nếu dùng AI) |
+| `AI_CHAT_MODELS` | Không | Danh sách model chat (OpenRouter) |
+| `AI_EMBEDDING_MODEL` | Không | Model embedding |
+| `VECTOR_SEARCH_INDEX` | Không | Tên index Atlas Vector Search |
+| `VECTOR_SIMILARITY_THRESHOLD` | Không | Ngưỡng similarity |
+| `GEMINI_API_KEY` | Không | Google AI Studio (tùy chọn) |
 
 ---
 
@@ -312,16 +376,55 @@ Swagger mô tả các endpoint auth, property, user, employee, customer, owner, 
 |------|--------|
 | `npm run start` | Chạy server (`node index.js`) |
 | `npm run dev` | Dev với nodemon |
-| `npm run setup:env` | Copy `.env.example` → `.env` nếu chưa tồn tại |
+| `npm test` | Toàn bộ unit tests |
+| `npm run test:auth` | Test auth |
+| `npm run test:ai` | Test AI helpers |
+| `npm run test:property` | Test property |
+| `npm run test:users` | Test users |
+| `npm run test:chat` | Test chat |
+| `npm run setup:env` | Copy `.env.example` → `.env` nếu chưa có |
+| `npm run seed:crm` | Seed CRM knowledge |
+| `npm run seed:coordinates` | Seed tọa độ |
+| `npm run backfill:embeddings` | Backfill embeddings |
+| `npm run test:crm-ai` | Script test pipeline CRM AI |
+
+---
+
+## Kiểm thử
+
+- Runner: Node.js built-in (`node --test`)
+- Thư mục: `tests/unit/<domain>/*.test.js`
+- Service dùng **factory + DI** để mock dependency (không cần Express/Mongo thật)
+- Lỗi nghiệp vụ: `AppError(message, statusCode)`
+
+```bash
+npm test
+```
+
+---
+
+## Tài liệu liên quan
+
+| File | Nội dung |
+|------|----------|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc Modular Monolith, pattern module, testability |
+| [`docs/CRM_AI_HUONG_DAN.md`](docs/CRM_AI_HUONG_DAN.md) | Hướng dẫn CRM AI |
+| [`docs/CRM_VECTOR_INDEX.md`](docs/CRM_VECTOR_INDEX.md) | Atlas Vector Search index |
+| [`docs/FE_BEHAVIOR_LEAD_SYNC_PROMPT.md`](docs/FE_BEHAVIOR_LEAD_SYNC_PROMPT.md) | Prompt FE — behavior & lead |
+| [`docs/feature-lead-api.md`](docs/feature-lead-api.md) | API lead |
+| [`docs/feature-view-api.md`](docs/feature-view-api.md) | API view / behavior |
+| [`docs/intergration-api.md`](docs/intergration-api.md) | Ghi chú tích hợp |
 
 ---
 
 ## Ghi chú triển khai
 
-- Thư mục upload: `uploads/` (tạo tự động khi gửi file qua `/api/message`)
-- Server thoát gracefully khi nhận `SIGINT` / `SIGTERM` (đóng HTTP + MongoDB)
-- Facebook login chỉ bật khi đủ biến môi trường; thiếu credentials vẫn chạy được các module khác
-- Frontend mặc định kỳ vọng tại `CLIENT_URL` (Vite thường dùng port `5173`)
+- Static images: `images/` → serve tại `/images`
+- Graceful shutdown: `SIGINT` / `SIGTERM` đóng HTTP + MongoDB
+- Facebook login chỉ bật khi đủ env; thiếu credentials vẫn chạy các module khác
+- Quên mật khẩu cần `EMAIL_*`; thiếu cấu hình API trả **503** với message rõ ràng
+- CORS hỗ trợ nhiều origin qua `CLIENT_URL` (phân cách dấu phẩy)
+- Frontend mặc định: Vite port `5173` (khớp `CLIENT_URL`)
 
 ---
 
