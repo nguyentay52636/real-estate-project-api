@@ -2,7 +2,12 @@
 import express from 'express';
 import roomController from '#modules/chat/controllers/roomChatController.js';
 
+import middlewareController from '#shared/middleware/auth.js';
+
 const router = express.Router();
+
+// Tất cả thao tác phòng chat đều cần xác thực token
+router.use(middlewareController.verifyToken);
 
 // Search rooms - không cần auth
 router.get('/search', roomController.searchRooms);

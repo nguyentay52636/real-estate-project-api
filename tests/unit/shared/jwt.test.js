@@ -20,12 +20,12 @@ describe('jwt utils', () => {
     assert.equal(payload.vaiTro, 'nguoi_thue');
   });
 
-  it('access token default TTL is ~7 days', () => {
+  it('access token default TTL is ~15 minutes', () => {
     const token = generateAccessToken(user, ACCESS);
     const payload = jwt.verify(token, ACCESS);
     const ttlSec = payload.exp - payload.iat;
-    // 7d = 604800s (±60s tolerance)
-    assert.ok(ttlSec >= 604800 - 60 && ttlSec <= 604800 + 60);
+    // 15m = 900s (±60s tolerance)
+    assert.ok(ttlSec >= 900 - 60 && ttlSec <= 900 + 60);
   });
 
   it('generateRefreshToken verifies with refresh secret', () => {

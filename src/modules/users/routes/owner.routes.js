@@ -43,10 +43,10 @@ router.patch(
 );
 
 // ── CRUD hồ sơ ChuNha ──────────────────────────────────────────
-router.get("/", getOwners);
-router.get("/:id", getOwnerById);
-router.post("/", createOwner);
-router.put("/:id", updateOwner);
-router.delete("/:id", deleteOwner);
+router.get("/", authorizeRoles('admin', 'nhan_vien'), getOwners);
+router.get("/:id", authorizeRoles('admin', 'nhan_vien', 'chu_tro'), getOwnerById);
+router.post("/", authorizeRoles('admin'), createOwner);
+router.put("/:id", authorizeRoles('admin', 'chu_tro'), updateOwner);
+router.delete("/:id", authorizeRoles('admin'), deleteOwner);
 
 export default router;

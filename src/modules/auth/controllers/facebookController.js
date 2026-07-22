@@ -3,8 +3,8 @@ import RefreshToken from '#models/RefreshToken.js';
 import { generateAccessToken, generateRefreshToken } from '#shared/utils/jwt.js';
 import https from 'https';
 
-// Kiểm tra Facebook credentials có sẵn không
-const hasFacebookCredentials = process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET;
+// Kiểm tra Facebook credentials có sẵn không (dùng Boolean để tránh gán nhầm string App Secret)
+const hasFacebookCredentials = Boolean(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET);
 
 const authController = {
     loginFacebook: (req, res, next) => {
@@ -119,7 +119,7 @@ const authController = {
         });
     },
 
-    // Debug endpoint để check Facebook app configuration
+    // Debug endpoint để check Facebook app configuration (chỉ hiển thị status, không lộ App Secret)
     debugFacebookConfig: (req, res) => {
         const config = {
             hasFacebookCredentials: hasFacebookCredentials,
@@ -129,39 +129,8 @@ const authController = {
             clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
             nodeEnv: process.env.NODE_ENV || 'development',
             callbackUrl: `${process.env.BASE_URL || 'http://localhost:8000'}/api/auth/facebook/callback`,
-            redirectUrls: {
-                success: `${process.env.CLIENT_URL || 'http://localhost:5173'}/success`,
-                failure: `${process.env.CLIENT_URL || 'http://localhost:5173'}/failure`
-            },
             status: hasFacebookCredentials ? 'READY' : 'NOT_CONFIGURED',
-            troubleshooting: {
-                developmentModeIssues: [
-                    'Facebook App may be in Development Mode',
-                    'Only Test Users and App Developers can login',
-                    'Add users as Testers in Facebook App Dashboard',
-                    'Or submit App Review to go Live'
-                ],
-                requiredForLive: [
-                    'Privacy Policy URL',
-                    'Terms of Service URL (recommended)',
-                    'App Review for email and public_profile permissions',
-                    'Valid OAuth Redirect URIs',
-                    'App Domains configuration'
-                ]
-            },
-            links: {
-                facebookDeveloper: 'https://developers.facebook.com/',
-                appDashboard: process.env.FACEBOOK_APP_ID ? 
-                    `https://developers.facebook.com/apps/${process.env.FACEBOOK_APP_ID}/` : 
-                    'N/A - App ID not configured',
-                appReview: process.env.FACEBOOK_APP_ID ? 
-                    `https://developers.facebook.com/apps/${process.env.FACEBOOK_APP_ID}/app-review/` : 
-                    'N/A - App ID not configured'
-            }
         };
-
-        // Log để admin dễ debug
-        console.log('🔍 Facebook Configuration Debug:', JSON.stringify(config, null, 2));
 
         return res.json({
             message: 'Facebook configuration debug info',
@@ -172,6 +141,9 @@ const authController = {
 
     // Test endpoint để kiểm tra Facebook API
     testFacebookApi: async (req, res) => {
+        if (process.env.NODE_ENV === 'production') {
+            return res.status(403).json({ message: 'Endpoint này bị tắt ở môi trường production' });
+        }
         if (!hasFacebookCredentials) {
             return res.status(400).json({
                 message: 'Facebook credentials not configured',
@@ -179,31 +151,11 @@ const authController = {
             });
         }
 
-        try {
-            // Test basic Facebook Graph API call
-
-            const appAccessToken = `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}`;
-            
-            const url = `https://graph.facebook.com/${process.env.FACEBOOK_APP_ID}?access_token=${appAccessToken}`;
-            
-            return res.json({
-                message: 'Facebook API test endpoint',
-                appId: process.env.FACEBOOK_APP_ID,
-                testUrl: url,
-                note: 'Use this URL to test if your Facebook App is accessible',
-                instructions: [
-                    '1. Copy the testUrl',
-                    '2. Open in browser or use curl',
-                    '3. Should return app information if configured correctly',
-                    '4. If error, check App ID and Secret in Facebook Dashboard'
-                ]
-            });
-        } catch (error) {
-            return res.status(500).json({
-                message: 'Error testing Facebook API',
-                error: error.message
-            });
-        }
+        return res.json({
+            message: 'Facebook API test endpoint',
+            appId: process.env.FACEBOOK_APP_ID,
+            status: 'READY'
+        });
     }
 };
 
