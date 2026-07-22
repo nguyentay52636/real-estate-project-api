@@ -220,9 +220,9 @@ const findOrCreatePrivateRoom = async (req, res) => {
       })
       .populate({
         path: 'tinNhan',
-        populate: { 
-          path: 'nguoiGuiId', 
-          select: 'ten anhDaiDien' 
+        populate: {
+          path: 'nguoiGuiId',
+          select: 'ten anhDaiDien'
         },
         options: { sort: { createdAt: 1 } },
       });

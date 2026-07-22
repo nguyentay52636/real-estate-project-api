@@ -1,6 +1,7 @@
 import express from 'express';
 import middlewareController from '#shared/middleware/auth.js';
-import { sendAIMessage,
+import {
+  sendAIMessage,
   requestHandoff,
   sendHumanMessage,
   getHandoffStatus,
@@ -14,7 +15,8 @@ import { sendAIMessage,
   cancelHandoffByGuest,
   reopenHandoff,
   deleteHandoff,
-  searchApartment, } from '#modules/ai/controllers/aiChatController.js';
+  searchApartment,
+} from '#modules/ai/controllers/aiChatController.js';
 
 const router = express.Router();
 

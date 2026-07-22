@@ -1,6 +1,7 @@
 import logger from '#shared/utils/logger.js';
 import CrmKnowledge from '#models/CrmKnowledge.js';
-import { createHandoffTicket,
+import {
+  createHandoffTicket,
   getHandoffStatus as fetchHandoffStatus,
   acceptHandoffTicket,
   getPendingTickets,
@@ -12,9 +13,7 @@ import { createHandoffTicket,
   dismissAllHandoffNotifications,
   resolveHandoffTicket,
   cancelHandoffTicket,
-  cancelHandoffTicketByGuest,
-  reopenHandoffTicket,
-  deleteHandoffTicket, } from '#modules/ai/services/handoffService.js';
+} from '#modules/ai/services/handoffService.js';
 import { processAdvisoryMessage } from '#modules/ai/services/aiAdvisoryPipeline.js';
 import { hasEmbeddingProvider } from '#modules/ai/services/embeddingService.js';
 import { hasChatProvider } from '#modules/ai/services/geminiChatService.js';
