@@ -1,0 +1,22 @@
+
+1. Favorite (/api/favorite)
+Bắt buộc JWT + attachAuthUser
+POST/DELETE: luôn dùng req.authUser.id (không nhận nguoiDungId từ body)
+GET / → yêu thích của mình
+GET /user/:userId → chỉ self hoặc staff
+FE: gửi token; bỏ nguoiDungId trong body add/remove.
+2. Avatar
+PATCH .../avatar/local|cloudinary cần token
+Chỉ chính mình hoặc staff mới đổi được
+3. User privacy
+GET /api/user → chỉ ten, anhDaiDien, trangThai, vaiTro (không email/SĐT)
+GET /api/user/:id → self/staff = full; người khác = public fields
+GET /api/user/all → admin, full (trừ secret)
+4. Viewings
+Khách: chỉ lịch của mình; tạo lịch gán nguoiDungId = mình
+chu_tro: lịch mình + lịch trên tin mình sở hữu
+Staff: xem tất cả
+Get/update/delete: check quyền (booker / chủ tin / staff)
+5. Rate limit
+Login / register / forgot / reset: tối đa 30 req / 15 phút / IP (AUTH_RATE_LIMIT_MAX)
+Deploy lên Render rồi test lại FE (favorite + viewing cần token).

@@ -3,7 +3,7 @@ import { asyncHandler } from '#shared/http/asyncHandler.js';
 
 const viewingsController = {
   getAllViewings: asyncHandler(async (req, res) => {
-    const { data, pagination } = await viewingService.getAllViewings(req.query);
+    const { data, pagination } = await viewingService.getAllViewings(req.query, req.authUser);
     return res.status(200).json({
       message: 'Lấy danh sách lịch hẹn thành công',
       data,
@@ -12,7 +12,7 @@ const viewingsController = {
   }),
 
   getViewingById: asyncHandler(async (req, res) => {
-    const viewing = await viewingService.getViewingById(req.params.id);
+    const viewing = await viewingService.getViewingById(req.params.id, req.authUser);
     return res.status(200).json({
       message: 'Lấy chi tiết lịch hẹn thành công',
       data: viewing,
@@ -20,7 +20,7 @@ const viewingsController = {
   }),
 
   createViewing: asyncHandler(async (req, res) => {
-    const created = await viewingService.createViewing(req.body);
+    const created = await viewingService.createViewing(req.body, req.authUser);
     return res.status(201).json({
       message: 'Đặt lịch hẹn xem nhà thành công',
       data: created,
@@ -28,7 +28,7 @@ const viewingsController = {
   }),
 
   updateViewing: asyncHandler(async (req, res) => {
-    const updated = await viewingService.updateViewing(req.params.id, req.body);
+    const updated = await viewingService.updateViewing(req.params.id, req.body, req.authUser);
     return res.status(200).json({
       message: 'Cập nhật lịch hẹn thành công',
       data: updated,
@@ -36,7 +36,7 @@ const viewingsController = {
   }),
 
   deleteViewing: asyncHandler(async (req, res) => {
-    const deleted = await viewingService.deleteViewing(req.params.id);
+    const deleted = await viewingService.deleteViewing(req.params.id, req.authUser);
     return res.status(200).json({
       message: 'Xóa lịch hẹn thành công',
       data: { id: deleted._id },

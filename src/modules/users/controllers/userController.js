@@ -9,6 +9,12 @@ import { AppError } from '#shared/errors/AppError.js';
 
 const dirname = getDirname(import.meta.url);
 
+function assertCanManageAvatar(actor, targetUserId) {
+  if (actor?.isStaff) return;
+  if (actor && String(actor.id) === String(targetUserId)) return;
+  throw new AppError('Không có quyền đổi ảnh đại diện của người dùng này', 403);
+}
+
 function removeLocalAvatar(anhDaiDien) {
   if (!anhDaiDien) return;
   const relativePath = anhDaiDien.startsWith('/') ? anhDaiDien.slice(1) : anhDaiDien;
@@ -44,7 +50,9 @@ const userController = {
   }),
 
   getUserById: asyncHandler(async (req, res) => {
-    const user = await userService.getUserById(req.params.id);
+    const isSelf = String(req.authUser.id) === String(req.params.id);
+    const publicOnly = !(isSelf || req.authUser.isStaff);
+    const user = await userService.getUserById(req.params.id, { publicOnly });
     return res.status(200).json(user);
   }),
 
@@ -82,6 +90,7 @@ const userController = {
 
   updateAvatarLocal: asyncHandler(async (req, res) => {
     const { id } = req.params;
+    assertCanManageAvatar(req.authUser, id);
 
     if (!req.file) {
       throw new AppError('Vui lòng tải lên một hình ảnh', 400);
@@ -110,6 +119,7 @@ const userController = {
 
   updateAvatarCloudinary: asyncHandler(async (req, res) => {
     const { id } = req.params;
+    assertCanManageAvatar(req.authUser, id);
 
     if (!req.file) {
       throw new AppError('Vui lòng tải lên một hình ảnh', 400);
