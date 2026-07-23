@@ -4,15 +4,6 @@
  *   - name: CRM Knowledge Catalog
  *     description: |
  *       API đọc catalog BĐS cho AI tư vấn — **không cần đăng nhập**.
- *
- *       AI pipeline và client có thể:
- *       - Lấy toàn bộ danh sách `active` → `GET /api/crm-knowledge-catalog`
- *       - Tìm BĐS khớp câu hỏi khách → `GET /api/crm-knowledge-catalog/search?q=...`
- *   - name: CRM Knowledge Admin
- *     description: |
- *       CRUD bài CRM AI (admin). Dữ liệu lưu model `CrmKnowledge` (MongoDB `crmknowledges`).
- *       Cần JWT admin (`Authorization: Bearer <token>`).
- */
 
 /**
  * @swagger
@@ -126,8 +117,14 @@
  *           type: array
  *           items:
  *             type: string
+ *           description: |
+ *             URL ảnh đã upload (https Cloudinary hoặc /images/...).
+ *             Upload trước qua POST /api/upload (auto) hoặc /cloudinary → /local.
+ *           example: ["https://res.cloudinary.com/demo/image/upload/sample.jpg"]
  *         anhDaiDien:
  *           type: string
+ *           description: URL ảnh đại diện (cùng quy tắc anhUrls)
+ *           example: "https://res.cloudinary.com/demo/image/upload/sample.jpg"
  *         url:
  *           type: string
  *           example: "http://localhost:5173/products/can-ho-vinhomes-can-gio"
@@ -405,6 +402,8 @@
  * /api/crm-knowledge/{id}/images:
  *   post:
  *     summary: Upload thêm ảnh cho bài CRM (admin)
+ *     description: |
+ *       Multipart field `files`. Ưu tiên Cloudinary; nếu lỗi → lưu `images/crm-properties/`.
  *     tags: [CRM Knowledge Admin]
  *     security:
  *       - bearerAuth: []

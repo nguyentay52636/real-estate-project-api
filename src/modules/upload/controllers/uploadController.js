@@ -1,11 +1,10 @@
 import { uploadFromBuffer } from '#infra/storage/cloudinaryService.js';
-import cloudinary from '#infra/storage/cloudinary.js';
 import {
   sanitizeFolder,
   toPublicUrl,
   toRelativePath,
-  saveBufferLocal,
 } from '#infra/storage/localUploadService.js';
+import { uploadBufferWithFallback } from '#infra/storage/uploadWithFallback.js';
 
 const uploadController = {
   uploadLocal: async (req, res) => {
@@ -64,6 +63,7 @@ const uploadController = {
   /**
    * Ưu tiên Cloudinary; nếu thiếu config / lỗi mạng → lưu local.
    * Field multipart: `file`
+   * (Tương đương FE: thử /cloudinary rồi fallback /local)
    */
   uploadAuto: async (req, res) => {
     try {
@@ -72,45 +72,26 @@ const uploadController = {
       }
 
       const folder = sanitizeFolder(req.query.folder || 'properties');
+      const uploaded = await uploadBufferWithFallback(
+        req.file.buffer,
+        req.file.originalname,
+        folder,
+      );
 
-      try {
-        const ready = await cloudinary.verifyConnection();
-        if (!ready.ok) {
-          throw new Error(ready.message || 'Cloudinary chưa sẵn sàng');
-        }
-
-        const result = await uploadFromBuffer(req.file.buffer, { folder });
-        return res.status(201).json({
-          message: 'Upload thành công (Cloudinary)',
-          storage: 'cloudinary',
-          data: {
-            url: result.secure_url,
-            publicId: result.public_id,
-            folder: result.folder || folder,
-            format: result.format,
-            width: result.width,
-            height: result.height,
-            bytes: result.bytes,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-          },
-        });
-      } catch (cloudError) {
-        const local = saveBufferLocal(req.file.buffer, req.file.originalname, folder);
-        return res.status(201).json({
-          message: 'Upload thành công (local fallback)',
-          storage: 'local',
-          fallbackReason: cloudError?.message || String(cloudError),
-          data: {
-            url: local.url,
-            path: local.path,
-            filename: local.filename,
-            folder: local.folder,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-          },
-        });
-      }
+      return res.status(201).json({
+        message:
+          uploaded.storage === 'cloudinary'
+            ? 'Upload thành công (Cloudinary)'
+            : 'Upload thành công (local fallback)',
+        storage: uploaded.storage,
+        ...(uploaded.fallbackReason ? { fallbackReason: uploaded.fallbackReason } : {}),
+        data: {
+          url: uploaded.url,
+          ...uploaded.meta,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+        },
+      });
     } catch (error) {
       return res.status(500).json({ message: 'Lỗi upload', error: error.message });
     }
