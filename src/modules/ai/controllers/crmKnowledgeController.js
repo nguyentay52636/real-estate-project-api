@@ -3,15 +3,47 @@ import crmKnowledgeService from '#modules/ai/services/crmKnowledgeService.js';
 const crmKnowledgeController = {
   create: async (req, res) => {
     try {
-      const { tieuDe, moTa, gia, diaChi, quanHuyen, phongNgu, dienTich, loaiBds, anhUrls, anhDaiDien, trangThai } = req.body;
+      const {
+        tieuDe,
+        moTa,
+        gia,
+        diaChi,
+        quanHuyen,
+        phongNgu,
+        dienTich,
+        loaiBds,
+        anhUrls,
+        anhDaiDien,
+        url,
+        trangThai,
+      } = req.body;
 
       if (!tieuDe || !moTa || gia == null || !diaChi || !quanHuyen) {
-        return res.status(400).json({ message: 'Thiếu thông tin bắt buộc (tieuDe, moTa, gia, diaChi, quanHuyen)' });
+        return res.status(400).json({
+          message: 'Thiếu thông tin bắt buộc (tieuDe, moTa, gia, diaChi, quanHuyen)',
+        });
       }
 
+      // anhUrls / anhDaiDien phải là URL thật sau khi upload:
+      // 1) POST /api/upload (Cloudinary → fallback local), hoặc
+      // 2) POST /api/upload/cloudinary rồi nếu lỗi POST /api/upload/local
+      // 3) hoặc tạo bài xong → POST /api/crm-knowledge/:id/images
       const item = await crmKnowledgeService.createKnowledge(
-        { tieuDe, moTa, gia, diaChi, quanHuyen, phongNgu, dienTich, loaiBds, anhUrls, anhDaiDien, trangThai },
-        req.user.id
+        {
+          tieuDe,
+          moTa,
+          gia,
+          diaChi,
+          quanHuyen,
+          phongNgu,
+          dienTich,
+          loaiBds,
+          anhUrls,
+          anhDaiDien,
+          url,
+          trangThai,
+        },
+        req.user.id,
       );
 
       return res.status(201).json({ message: 'Tạo bài CRM thành công', data: item });
