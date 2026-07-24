@@ -3,7 +3,17 @@
  * tags:
  *   - name: CRM Knowledge Catalog
  *     description: |
- *       API đọc catalog BĐS cho AI tư vấn — **không cần đăng nhập**.
+ *       Catalog BĐS cho AI — **không cần đăng nhập**.
+ *       Nguồn: Property (`trangThai = dang_hoat_dong`).
+ *       - List: `GET /api/crm-knowledge-catalog`
+ *       - Search: `GET /api/crm-knowledge-catalog/search?q=...`
+ *       Item có `url` = `{CLIENT_URL}/products/{slug}`.
+ *   - name: CRM Knowledge Admin
+ *     description: |
+ *       **DEPRECATED (410).** Không còn CRUD tin AI riêng.
+ *       Quản lý qua `/api/property` / `/api/property-post`.
+ *       Catalog: `/api/crm-knowledge-catalog`.
+ */
 
 /**
  * @swagger
