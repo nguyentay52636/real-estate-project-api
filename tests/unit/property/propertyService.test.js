@@ -369,6 +369,7 @@ describe('propertyService.createProperty', () => {
       nguoiDungId: 'u1',
       chuNha: { ten: 'hack' },
       gia: 1000,
+      anhDaiDien: 'https://res.cloudinary.com/demo/image.jpg',
     });
 
     assert.equal(receivedPayload.chuNha, undefined);
@@ -406,6 +407,7 @@ describe('propertyService.createProperty', () => {
       nguoiDungId: 'u1',
       quanHuyen: 'Quận 1',
       tinhThanh: 'TP.HCM',
+      anhDaiDien: 'https://res.cloudinary.com/demo/image.jpg',
     });
 
     assert.ok(receivedPayload.toaDo);
@@ -427,6 +429,7 @@ describe('propertyService.createProperty', () => {
       () => service.createProperty({
         tieuDe: 'Tin',
         nguoiDungId: 'u1',
+        anhDaiDien: 'https://res.cloudinary.com/demo/image.jpg',
         toaDo: { lat: 999, lng: 106.7 },
       }),
       (err) => err instanceof AppError && err.statusCode === 400,

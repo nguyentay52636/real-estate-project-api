@@ -66,52 +66,10 @@ router.post(
  * @swagger
  * /api/upload/cloudinary:
  *   post:
- *     summary: Upload ảnh lên Cloudinary
- *     tags: [Upload]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: folder
- *         schema:
- *           type: string
- *           default: uploads
- *         description: Folder trên Cloudinary (vd. avatars, properties)
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required: [file]
- *             properties:
- *               file:
- *                 type: string
- *                 format: binary
- *     responses:
- *       201:
- *         description: Upload thành công
- *       400:
- *         description: Thiếu file hoặc định dạng không hợp lệ
- *       401:
- *         description: Chưa đăng nhập
- */
-router.post(
-  '/cloudinary',
-  middlewareController.verifyToken,
-  uploadMemory.single('file'),
-  handleUploadError,
-  uploadController.uploadCloudinary
-);
-
-/**
- * @swagger
- * /api/upload:
- *   post:
- *     summary: Upload ảnh (ưu tiên Cloudinary, fallback local)
+ *     summary: Upload ảnh (ưu tiên Cloudinary, lỗi → local)
  *     description: |
- *       Thử Cloudinary trước. Nếu thiếu env / không kết nối được thì lưu vào `images/`.
- *       Response có `storage: cloudinary | local` để FE biết nguồn URL.
+ *       Thử Cloudinary trước. Nếu thiếu env / lỗi mạng thì lưu `images/{folder}/`.
+ *       Response `storage: cloudinary | local`. Dùng cho đăng tin Property.
  *     tags: [Upload]
  *     security:
  *       - bearerAuth: []
@@ -135,9 +93,53 @@ router.post(
  *                 format: binary
  *     responses:
  *       201:
- *         description: Upload thành công (cloudinary hoặc local)
+ *         description: Upload thành công (cloudinary hoặc local fallback)
  *       400:
  *         description: Thiếu file hoặc định dạng không hợp lệ
+ *       401:
+ *         description: Chưa đăng nhập
+ */
+router.post(
+  '/cloudinary',
+  middlewareController.verifyToken,
+  uploadMemory.single('file'),
+  handleUploadError,
+  uploadController.uploadCloudinary
+);
+
+/**
+ * @swagger
+ * /api/upload:
+ *   post:
+ *     summary: Upload 1 ảnh (Cloudinary → local) — khuyến nghị cho Property
+ *     description: |
+ *       Giống `/cloudinary`: thử Cloudinary trước, lỗi thì local.
+ *       `folder` mặc định `properties`.
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: folder
+ *         schema:
+ *           type: string
+ *           default: properties
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Upload thành công
+ *       400:
+ *         description: Thiếu file
  *       401:
  *         description: Chưa đăng nhập
  */
@@ -147,6 +149,49 @@ router.post(
   uploadMemory.single('file'),
   handleUploadError,
   uploadController.uploadAuto
+);
+
+/**
+ * @swagger
+ * /api/upload/many:
+ *   post:
+ *     summary: Upload nhiều ảnh gallery Property (Cloudinary → local từng file)
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: folder
+ *         schema:
+ *           type: string
+ *           default: properties
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [files]
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       201:
+ *         description: Upload thành công — data.urls[]
+ *       400:
+ *         description: Thiếu files
+ *       401:
+ *         description: Chưa đăng nhập
+ */
+router.post(
+  '/many',
+  middlewareController.verifyToken,
+  uploadMemory.array('files', 12),
+  handleUploadError,
+  uploadController.uploadMany
 );
 
 export default router;

@@ -17,6 +17,7 @@ import {
 import { enqueueJob } from '#infra/queue/jobQueue.js';
 import { JOB_PROPERTY_EMBED } from '#infra/queue/jobHandlers.js';
 import { clearCatalogCache } from '#modules/ai/services/crmKnowledgeCatalogClient.js';
+import { sanitizeMediaUrl, sanitizeMediaUrls } from '#infra/storage/uploadWithFallback.js';
 
 const CHU_NHA_FIELDS = 'ten soDienThoai anhDaiDien trangThai vaiTro';
 const LIST_SELECT =
@@ -492,14 +493,33 @@ export function createPropertyService(deps = {}) {
       createdAt: _createdAt,
       updatedAt: _updatedAt,
       __v: _v,
+      embedding: _embedding,
       ...rest
     } = input;
+
+    if (rest.anhDaiDien !== undefined) {
+      rest.anhDaiDien = sanitizeMediaUrl(rest.anhDaiDien);
+    }
+    if (rest.gallery !== undefined) {
+      rest.gallery = sanitizeMediaUrls(rest.gallery);
+    }
+    if (!rest.anhDaiDien && rest.gallery?.length) {
+      rest.anhDaiDien = rest.gallery[0];
+    }
+
     return rest;
   }
 
   async function createProperty(input) {
     const payload = sanitizePropertyInput(input);
     await assertCanPostProperty(payload.nguoiDungId);
+
+    if (!payload.anhDaiDien) {
+      throw new AppError(
+        'Thiếu anhDaiDien. Upload ảnh trước qua POST /api/upload?folder=properties (Cloudinary → local) rồi gửi URL.',
+        400,
+      );
+    }
 
     if (payload.toaDo !== undefined && payload.toaDo !== null) {
       if (!isValidCoordinates(payload.toaDo)) {
