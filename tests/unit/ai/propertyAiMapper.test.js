@@ -4,7 +4,7 @@ import { toAiCatalogItem } from '#modules/ai/services/propertyAiMapper.js';
 
 describe('toAiCatalogItem', () => {
   it('maps Property to AI catalog shape with FE product url', () => {
-    process.env.CLIENT_URL = 'https://newlive-sable.vercel.app,http://localhost:5173';
+    process.env.CLIENT_URL = 'https://phuongtayland.space,http://localhost:5173';
     const item = toAiCatalogItem({
       _id: 'p1',
       tieuDe: 'Căn hộ Q2',
@@ -24,7 +24,7 @@ describe('toAiCatalogItem', () => {
       embedding: [0.1, 0.2],
     });
 
-    assert.equal(item.url, 'https://newlive-sable.vercel.app/products/can-ho-q2');
+    assert.equal(item.url, 'https://phuongtayland.space/products/can-ho-q2');
     assert.equal(item.trangThai, 'active');
     assert.deepEqual(item.anhUrls, ['https://cdn.example/a.jpg', 'https://cdn.example/b.jpg']);
     assert.equal(item.anhDaiDien, 'https://cdn.example/a.jpg');

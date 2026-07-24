@@ -1,6 +1,7 @@
 import passport from '#config/passport.js';
 import RefreshToken from '#models/RefreshToken.js';
 import { generateAccessToken, generateRefreshToken } from '#shared/utils/jwt.js';
+import { getPrimaryClientUrl } from '#shared/utils/corsOrigins.js';
 import https from 'https';
 
 // Kiểm tra Facebook credentials có sẵn không (dùng Boolean để tránh gán nhầm string App Secret)
@@ -35,25 +36,27 @@ const authController = {
     },
 
     facebookCallback: (req, res, next) => {
+        const clientUrl = getPrimaryClientUrl();
         if (!hasFacebookCredentials) {
-            return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/failure?error=facebook_not_configured`);
+            return res.redirect(`${clientUrl}/failure?error=facebook_not_configured`);
         }
         
         try {
             return passport.authenticate('facebook', {
-                failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:5173'}/failure?error=facebook_auth_failed`,
+                failureRedirect: `${clientUrl}/failure?error=facebook_auth_failed`,
                 session: true
             })(req, res, next);
         } catch (error) {
-            return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/failure?error=facebook_strategy_error`);
+            return res.redirect(`${clientUrl}/failure?error=facebook_strategy_error`);
         }
     },
 
     success: async (req, res) => {
+        const clientUrl = getPrimaryClientUrl();
         try {
             if (!req.user) {
                 console.error('Facebook success but no user in request');
-                return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/failure?error=no_user_data`);
+                return res.redirect(`${clientUrl}/failure?error=no_user_data`);
             }
 
             const user = req.user;
@@ -76,7 +79,6 @@ const authController = {
             });
 
             // Redirect về frontend với access token và user info
-            const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
             const successUrl = `${clientUrl}/success?accessToken=${accessToken}&name=${encodeURIComponent(user.ten)}&userId=${user._id}&loginType=facebook`;
             
             console.log('Redirecting to:', successUrl);
@@ -84,7 +86,6 @@ const authController = {
 
         } catch (error) {
             console.error('Facebook success error:', error);
-            const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
             return res.redirect(`${clientUrl}/failure?error=token_generation_failed&message=${encodeURIComponent(error.message)}`);
         }
     },
@@ -126,7 +127,7 @@ const authController = {
             appId: process.env.FACEBOOK_APP_ID ? 'Configured' : 'Missing',
             appSecret: process.env.FACEBOOK_APP_SECRET ? 'Configured' : 'Missing',
             baseUrl: process.env.BASE_URL || 'http://localhost:8000',
-            clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+            clientUrl: getPrimaryClientUrl(),
             nodeEnv: process.env.NODE_ENV || 'development',
             callbackUrl: `${process.env.BASE_URL || 'http://localhost:8000'}/api/auth/facebook/callback`,
             status: hasFacebookCredentials ? 'READY' : 'NOT_CONFIGURED',

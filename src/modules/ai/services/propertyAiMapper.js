@@ -7,7 +7,7 @@ function getClientOrigin() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)[0];
-  return (first || 'http://localhost:5173').replace(/\/$/, '');
+  return (first || 'https://phuongtayland.space').replace(/\/$/, '');
 }
 
 /**
