@@ -47,7 +47,7 @@ async function getOpenRouter() {
     const { OpenRouter } = await import('@openrouter/sdk');
     openRouterInstance = new OpenRouter({
       apiKey,
-      httpReferer: process.env.CLIENT_URL || 'http://localhost:5173',
+      httpReferer: process.env.CLIENT_URL?.split(',')[0]?.trim().replace(/\/$/, '') || 'https://phuongtayland.space',
       appTitle: 'Real Estate CRM',
     });
   }

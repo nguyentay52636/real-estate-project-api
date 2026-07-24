@@ -5,7 +5,7 @@ function normalizeOrigin(url) {
 
 /**
  * Danh sách origin FE được phép CORS (REST + Socket.IO).
- * - Mặc định: localhost (dev) + Vercel production
+ * - Mặc định: localhost (dev) + phuongtayland.space
  * - Thêm từ CLIENT_URL / CLIENT_URLS (phân cách bằng dấu phẩy)
  */
 export function getAllowedOrigins() {
@@ -13,7 +13,8 @@ export function getAllowedOrigins() {
     'http://localhost:5173',
     'http://localhost:3000',
     'http://localhost:8080',
-    'https://newlive-sable.vercel.app',
+    'https://phuongtayland.space',
+    'https://www.phuongtayland.space',
   ]
 
   const fromEnv = [process.env.CLIENT_URL, process.env.CLIENT_URLS]
