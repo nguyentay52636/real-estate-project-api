@@ -14,6 +14,9 @@ import {
   hashKey,
   stripCacheBustParams,
 } from '#infra/cache/redisCache.js';
+import { enqueueJob } from '#infra/queue/jobQueue.js';
+import { JOB_PROPERTY_EMBED } from '#infra/queue/jobHandlers.js';
+import { clearCatalogCache } from '#modules/ai/services/crmKnowledgeCatalogClient.js';
 
 const CHU_NHA_FIELDS = 'ten soDienThoai anhDaiDien trangThai vaiTro';
 const LIST_SELECT =
@@ -191,6 +194,12 @@ export function createPropertyService(deps = {}) {
     await cacheDelByPrefix('property:list:');
     await cacheDelByPrefix('property:related:');
     if (slug) await cacheDel(`property:slug:${slug}`);
+    clearCatalogCache();
+  }
+
+  function schedulePropertyEmbedding(propertyId) {
+    if (!propertyId) return;
+    enqueueJob(JOB_PROPERTY_EMBED, { propertyId: String(propertyId) }).catch(() => {});
   }
 
   async function getAllProperties(query = {}) {
@@ -305,7 +314,9 @@ export function createPropertyService(deps = {}) {
   }
 
   async function getPropertyById(id) {
-    const property = await maybeLean(populateChuNha(Property.findById(id)));
+    let q = Property.findById(id);
+    if (typeof q?.select === 'function') q = q.select('-embedding');
+    const property = await maybeLean(populateChuNha(q));
     if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
     return toPropertyResponse(property);
   }
@@ -403,7 +414,9 @@ export function createPropertyService(deps = {}) {
 
   async function getPropertyBySlug(slug) {
     return cacheGetOrSet(`property:slug:${slug}`, Number(process.env.CACHE_TTL_PROPERTY_SLUG || 180), async () => {
-      const property = await maybeLean(populateChuNha(Property.findOne({ slug })));
+      let q = Property.findOne({ slug });
+      if (typeof q?.select === 'function') q = q.select('-embedding');
+      const property = await maybeLean(populateChuNha(q));
       if (!property) throw new AppError('Không tìm thấy bất động sản', 404);
       return toPropertyResponse(property);
     });
@@ -502,6 +515,7 @@ export function createPropertyService(deps = {}) {
     const newProperty = new Property(payload);
     const saved = await newProperty.save();
     await invalidatePropertyCache(saved.slug);
+    schedulePropertyEmbedding(saved._id);
     return getPropertyById(saved._id);
   }
 
@@ -526,6 +540,7 @@ export function createPropertyService(deps = {}) {
     });
     if (!updated) throw new AppError('Không tìm thấy bất động sản', 404);
     await invalidatePropertyCache(updated.slug);
+    schedulePropertyEmbedding(updated._id);
     return getPropertyById(updated._id);
   }
 
@@ -539,6 +554,9 @@ export function createPropertyService(deps = {}) {
     const updated = await Property.findByIdAndUpdate(id, { trangThai }, { new: true });
     if (!updated) throw new AppError('Không tìm thấy bất động sản', 404);
     await invalidatePropertyCache(updated.slug);
+    if (trangThai === 'dang_hoat_dong') {
+      schedulePropertyEmbedding(updated._id);
+    }
     return getPropertyById(updated._id);
   }
 

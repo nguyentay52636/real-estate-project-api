@@ -1,5 +1,4 @@
 import logger from '#shared/utils/logger.js';
-import CrmKnowledge from '#models/CrmKnowledge.js';
 import {
   createHandoffTicket,
   getHandoffStatus as fetchHandoffStatus,
@@ -393,23 +392,29 @@ export const sendHumanMessage = (req, res) => {
 export const searchApartment = async (req, res) => {
   try {
     const { district, maxPrice, minPrice, quanHuyen } = req.body;
+    const { getActivePropertiesForAi } = await import('#modules/ai/services/propertyAiCatalog.js');
 
-    const filter = { trangThai: 'active' };
-    if (district || quanHuyen) {
-      filter.quanHuyen = new RegExp(district || quanHuyen, 'i');
+    let items = await getActivePropertiesForAi({ includeEmbedding: false });
+
+    const districtQ = district || quanHuyen;
+    if (districtQ) {
+      const re = new RegExp(String(districtQ), 'i');
+      items = items.filter((p) => re.test(p.quanHuyen || ''));
     }
-    if (maxPrice) filter.gia = { ...filter.gia, $lte: maxPrice };
-    if (minPrice) filter.gia = { ...filter.gia, $gte: minPrice };
+    if (maxPrice != null) {
+      items = items.filter((p) => p.gia != null && p.gia <= Number(maxPrice));
+    }
+    if (minPrice != null) {
+      items = items.filter((p) => p.gia != null && p.gia >= Number(minPrice));
+    }
 
-    const results = await CrmKnowledge.find(filter)
-      .select('-embedding')
-      .sort({ createdAt: -1 })
-      .limit(20);
+    items = items.slice(0, 20);
 
     return res.status(200).json({
       success: true,
-      total: results.length,
-      data: results,
+      source: 'property',
+      total: items.length,
+      data: items,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

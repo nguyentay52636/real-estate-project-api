@@ -77,6 +77,9 @@ const BDSchema = new mongoose.Schema(
       banCong: { type: Boolean, default: false }, // Có ban công hay không
       noiThat: { type: String, default: '' }, // Nội thất
     },
+
+    /** Vector embedding cho AI catalog / semantic search (không trả về API public mặc định) */
+    embedding: { type: [Number], default: [] },
   },
   { timestamps: true }
 );

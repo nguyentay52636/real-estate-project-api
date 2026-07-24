@@ -216,8 +216,8 @@ Real-time bổ sung qua Socket.IO (xem bên dưới).
 | Prefix | Nghiệp vụ |
 |--------|-----------|
 | `/api/ai-chat` | Chat tư vấn + handoff sang nhân viên |
-| `/api/crm-knowledge` | Knowledge base + embedding / vector search |
-| `/api/crm-knowledge-catalog` | Catalog knowledge cho pipeline AI |
+| `/api/crm-knowledge` | **DEPRECATED (410)** — không còn CRUD |
+| `/api/crm-knowledge-catalog` | Catalog AI từ **Property** `dang_hoat_dong` |
 
 Tài liệu: [`docs/CRM_AI_HUONG_DAN.md`](docs/CRM_AI_HUONG_DAN.md), [`docs/CRM_VECTOR_INDEX.md`](docs/CRM_VECTOR_INDEX.md).
 

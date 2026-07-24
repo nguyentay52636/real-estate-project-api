@@ -1,9 +1,12 @@
 import logger from '#shared/utils/logger.js';
-import { getAllActive } from './crmKnowledgeService.js';
+import {
+  getActivePropertiesForAi,
+} from './propertyAiCatalog.js';
 import { cacheGet, cacheSet, cacheDel } from '#infra/cache/redisCache.js';
 
 const CACHE_TTL_MS = parseInt(process.env.CRM_CATALOG_CACHE_MS || '30000', 10);
 const CACHE_TTL_SEC = Math.max(1, Math.ceil(CACHE_TTL_MS / 1000));
+/** Redis keys giữ tên cũ để tương thích deploy — nội dung giờ là Property catalog */
 const REDIS_CATALOG_KEY = 'crm:catalog';
 const REDIS_EMBED_KEY = 'crm:catalog:embeddings';
 
@@ -41,12 +44,15 @@ async function fetchCatalogWithEmbeddings({ bypassCache = false } = {}) {
     }
   }
 
-  const items = await getAllActive({ includeEmbedding: true });
+  const items = await getActivePropertiesForAi({ includeEmbedding: true });
   embeddingCache = { items, fetchedAt: now };
   await cacheSet(REDIS_EMBED_KEY, items, CACHE_TTL_SEC);
   return items;
 }
 
+/**
+ * Catalog cho AI — ưu tiên HTTP self-call (multi-instance), fallback đọc Property trực tiếp.
+ */
 async function fetchCatalogFromApi({ bypassCache = false } = {}) {
   const now = Date.now();
   if (!bypassCache && cache.items && now - cache.fetchedAt < CACHE_TTL_MS) {
@@ -78,13 +84,13 @@ async function fetchCatalogFromApi({ bypassCache = false } = {}) {
 
     cache = { items, fetchedAt: now };
     await cacheSet(REDIS_CATALOG_KEY, items, CACHE_TTL_SEC);
-    logger.info(`[CatalogClient] Đã tải ${items.length} bài từ API catalog`);
+    logger.info(`[CatalogClient] Đã tải ${items.length} tin Property từ catalog API`);
 
     return items;
   } catch (error) {
-    logger.warn(`[CatalogClient] API lỗi (${error.message}), fallback getAllActive`);
+    logger.warn(`[CatalogClient] API lỗi (${error.message}), fallback Property DB`);
 
-    const items = await getAllActive();
+    const items = await getActivePropertiesForAi({ includeEmbedding: false });
     cache = { items, fetchedAt: now };
     await cacheSet(REDIS_CATALOG_KEY, items, CACHE_TTL_SEC);
     return items;
@@ -92,4 +98,9 @@ async function fetchCatalogFromApi({ bypassCache = false } = {}) {
 }
 
 export { fetchCatalogFromApi, fetchCatalogWithEmbeddings, getCatalogApiUrl, clearCatalogCache };
-export default { fetchCatalogFromApi, fetchCatalogWithEmbeddings, getCatalogApiUrl, clearCatalogCache };
+export default {
+  fetchCatalogFromApi,
+  fetchCatalogWithEmbeddings,
+  getCatalogApiUrl,
+  clearCatalogCache,
+};
