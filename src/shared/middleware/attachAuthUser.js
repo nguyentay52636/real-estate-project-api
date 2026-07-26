@@ -1,7 +1,7 @@
 import User from '#models/User.js';
 import { AppError } from '#shared/errors/AppError.js';
 
-const STAFF_ROLES = new Set(['admin', 'nhan_vien', 'quan_tri_vien']);
+const STAFF_ROLES = new Set(['admin', 'nhan_vien', 'quan_tri_vien', 'sale', 'ke_toan']);
 
 
 export async function attachAuthUser(req, _res, next) {

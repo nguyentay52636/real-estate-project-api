@@ -31,7 +31,7 @@
  *           type: string
  *         trangThai:
  *           type: string
- *           enum: [cho_xac_nhan, da_xac_nhan, da_huy]
+ *           enum: [cho_xac_nhan, da_xac_nhan, da_xem, thanh_cong, that_bai, da_huy]
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -61,7 +61,7 @@
  *         name: trangThai
  *         schema:
  *           type: string
- *           enum: [cho_xac_nhan, da_xac_nhan, da_huy]
+ *           enum: [cho_xac_nhan, da_xac_nhan, da_xem, thanh_cong, that_bai, da_huy]
  *       - in: query
  *         name: page
  *         schema:
@@ -104,7 +104,7 @@
  *                 example: "Muốn xem vào buổi sáng"
  *               trangThai:
  *                 type: string
- *                 enum: [cho_xac_nhan, da_xac_nhan, da_huy]
+ *                 enum: [cho_xac_nhan, da_xac_nhan, da_xem, thanh_cong, that_bai, da_huy]
  *     responses:
  *       201:
  *         description: Đặt lịch thành công
@@ -157,7 +157,7 @@
  *                 type: string
  *               trangThai:
  *                 type: string
- *                 enum: [cho_xac_nhan, da_xac_nhan, da_huy]
+ *                 enum: [cho_xac_nhan, da_xac_nhan, da_xem, thanh_cong, that_bai, da_huy]
  *               batDongSanId:
  *                 type: string
  *     responses:

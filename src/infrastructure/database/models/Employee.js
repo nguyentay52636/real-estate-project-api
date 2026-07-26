@@ -11,7 +11,7 @@ const NhanVienSchema = new mongoose.Schema(
     phongBan: {
       type: String,
       required: true,
-      enum: ["sale","ho_tro_khach_hang","chuyen_vien_sale","truong_phong_ban"],
+      enum: ["sale","ho_tro_khach_hang","chuyen_vien_sale","truong_phong_ban","ke_toan"],
       default: "sale"
     },
     chucVu: {

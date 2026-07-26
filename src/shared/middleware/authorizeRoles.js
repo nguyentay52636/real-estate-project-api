@@ -28,6 +28,7 @@ export function authorizeRoles(...allowedRoles) {
         req.authUser = {
           id: String(user._id),
           vaiTro: roleName,
+          isStaff: ['admin', 'nhan_vien', 'quan_tri_vien', 'sale', 'ke_toan'].includes(roleName),
         };
         next();
       } catch (error) {

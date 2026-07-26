@@ -6,7 +6,7 @@ const VaiTroSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      enum: ["admin", "nhan_vien", "nguoi_thue", "chu_tro"]
+      enum: ["admin", "nhan_vien", "nguoi_thue", "chu_tro", "sale", "ke_toan"]
     },
     moTa: {
       type: String,
