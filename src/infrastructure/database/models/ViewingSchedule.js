@@ -20,7 +20,14 @@ const LichSchema = new mongoose.Schema(
     ghiChu: { type: String, default: '' },
     trangThai: {
       type: String,
-      enum: ['cho_xac_nhan', 'da_xac_nhan', 'da_huy'],
+      enum: [
+        'cho_xac_nhan',
+        'da_xac_nhan',
+        'da_xem',
+        'thanh_cong',
+        'that_bai',
+        'da_huy',
+      ],
       default: 'cho_xac_nhan',
       index: true,
     },

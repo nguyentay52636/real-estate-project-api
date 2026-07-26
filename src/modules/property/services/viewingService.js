@@ -6,7 +6,14 @@ import { AppError } from '#shared/errors/AppError.js';
 const USER_FIELDS = 'ten email soDienThoai anhDaiDien trangThai vaiTro';
 const PROPERTY_FIELDS =
   'tieuDe slug anhDaiDien diaChi quanHuyen tinhThanh gia trangThai nguoiDungId loaiBds loaiGiaoDich';
-const VALID_STATUSES = ['cho_xac_nhan', 'da_xac_nhan', 'da_huy'];
+const VALID_STATUSES = [
+  'cho_xac_nhan',
+  'da_xac_nhan',
+  'da_xem',
+  'thanh_cong',
+  'that_bai',
+  'da_huy',
+];
 
 function parsePagination({ page = 1, limit = 10 } = {}) {
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -226,6 +233,22 @@ export function createViewingService(deps = {}) {
       runValidators: true,
     });
     if (!updated) throw new AppError('Không tìm thấy lịch hẹn', 404);
+
+    // Đồng bộ hồ sơ Deal khi lịch xem tiến/chốt/rớt
+    if (
+      allowed.trangThai &&
+      ['da_xac_nhan', 'da_xem', 'thanh_cong', 'that_bai', 'da_huy'].includes(allowed.trangThai)
+    ) {
+      try {
+        const { default: dealService } = await import('#modules/deal/services/dealService.js');
+        const full = await populateViewing(Viewing.findById(updated._id));
+        await dealService.upsertFromViewing(full, actor);
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[viewing→deal]', err?.message || err);
+        }
+      }
+    }
 
     return getViewingById(updated._id, actor);
   }

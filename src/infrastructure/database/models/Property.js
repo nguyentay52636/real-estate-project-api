@@ -49,6 +49,14 @@ const BDSchema = new mongoose.Schema(
       required: true,
     },
 
+    /** Sale / NV phụ trách tin (gán nội bộ) */
+    nhanVienPhuTrachId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "nguoiDung",
+      default: null,
+      index: true,
+    },
+
     badge: String, // Nhãn nổi bật
     subtitle: String, // Phụ đề
 
