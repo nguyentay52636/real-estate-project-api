@@ -136,7 +136,17 @@ function registerMessageHandlers(socket, io) {
         tinNhanId: message._id,
       });
 
+      // Phòng socket (người đang mở chat + đã join)
       io.to(roomId).emit('message:new', populatedMessage);
+      // Phòng cá nhân từng thành viên — nhận tin ngay cả khi chưa joinRoom
+      // (FE lọc theo roomId đang mở; NotificationProvider bỏ qua vì không có roomId)
+      if (room?.thanhVien?.length) {
+        for (const m of room.thanhVien) {
+          if (m.trangThai !== 'active') continue;
+          const uid = m.nguoiDung?.toString?.() || String(m.nguoiDung);
+          if (uid) io.to(uid).emit('message:new', populatedMessage);
+        }
+      }
     }, 'CREATE_MESSAGE_FAILED')
   );
 
@@ -247,7 +257,48 @@ function registerMessageHandlers(socket, io) {
 
       const populatedMessage = await populateMessage(id);
       io.to(roomId).emit('message:read', populatedMessage);
+      // Báo người gửi (có thể chưa join room) qua phòng cá nhân
+      const senderId = populatedMessage?.nguoiGuiId?._id?.toString?.()
+        || populatedMessage?.nguoiGuiId?.toString?.();
+      if (senderId) io.to(String(senderId)).emit('message:read', populatedMessage);
     }, 'READ_MESSAGE_FAILED')
+  );
+
+  // Đánh dấu hàng loạt khi mở phòng — nhanh hơn emit từng tin
+  socket.on(
+    'messages:read',
+    wrapHandler(socket, async ({ roomId, ids }) => {
+      if (!roomId || !Array.isArray(ids) || ids.length === 0) {
+        emitError(socket, 'INVALID_DATA', 'Thiếu roomId hoặc ids');
+        return;
+      }
+      if (!isValidId(roomId)) {
+        emitError(socket, 'INVALID_ROOM_ID', 'ID phòng chat không hợp lệ');
+        return;
+      }
+      if (!socket.rooms.has(roomId)) {
+        emitError(socket, 'NOT_IN_ROOM', 'Bạn phải tham gia phòng trước');
+        return;
+      }
+
+      const validIds = ids.filter((id) => isValidId(id)).slice(0, 50);
+      if (!validIds.length) return;
+
+      await TinNhan.updateMany(
+        { _id: { $in: validIds }, roomId },
+        { $addToSet: { daDoc: socket.user.id } }
+      );
+
+      const updated = await TinNhan.find({ _id: { $in: validIds }, roomId })
+        .populate('nguoiGuiId', 'ten anhDaiDien')
+        .populate('roomId', 'tenPhong loaiPhong');
+
+      for (const msg of updated) {
+        io.to(roomId).emit('message:read', msg);
+        const senderId = msg.nguoiGuiId?._id?.toString?.() || msg.nguoiGuiId?.toString?.();
+        if (senderId) io.to(String(senderId)).emit('message:read', msg);
+      }
+    }, 'READ_MESSAGES_FAILED')
   );
 
   socket.on(

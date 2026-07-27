@@ -483,16 +483,18 @@ export function createDealService(deps = {}) {
           $match: {
             ...filter,
             trangThai: 'chot',
-            ...(filter.ngayChot
-              ? {}
-              : { ngayChot: { $ne: null } }),
+          },
+        },
+        {
+          $addFields: {
+            _bucketDate: { $ifNull: ['$ngayChot', '$updatedAt'] },
           },
         },
         {
           $group: {
             _id: {
-              y: { $year: '$ngayChot' },
-              m: { $month: '$ngayChot' },
+              y: { $year: '$_bucketDate' },
+              m: { $month: '$_bucketDate' },
             },
             doanhThu: { $sum: { $ifNull: ['$giaChot', 0] } },
             hoaHong: { $sum: { $ifNull: ['$hoaHongSoTien', 0] } },
