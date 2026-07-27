@@ -138,13 +138,13 @@ function registerMessageHandlers(socket, io) {
 
       // Phòng socket (người đang mở chat + đã join)
       io.to(roomId).emit('message:new', populatedMessage);
-      // Phòng cá nhân từng thành viên — nhận tin ngay cả khi chưa joinRoom
-      // (FE lọc theo roomId đang mở; NotificationProvider bỏ qua vì không có roomId)
+      // Phòng cá nhân — member chưa join room (không emit lại cho người gửi / đã trong phòng)
       if (room?.thanhVien?.length) {
         for (const m of room.thanhVien) {
           if (m.trangThai !== 'active') continue;
           const uid = m.nguoiDung?.toString?.() || String(m.nguoiDung);
-          if (uid) io.to(uid).emit('message:new', populatedMessage);
+          if (!uid || uid === String(socket.user.id)) continue;
+          io.to(uid).emit('message:new', populatedMessage);
         }
       }
     }, 'CREATE_MESSAGE_FAILED')

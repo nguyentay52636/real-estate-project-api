@@ -7,6 +7,11 @@ import { generateAdvisoryReply } from './geminiChatService.js';
 import { fuzzyPhraseIncluded } from '#shared/utils/fuzzyMatch.js';
 import { fetchCatalogFromApi } from './crmKnowledgeCatalogClient.js';
 import { districtDistance, findNearestByDistrict } from './hcmcGeography.js';
+import {
+  extractSearchFilters,
+  formatFilterSummary,
+  hasStructuredFilters,
+} from './searchFilters.js';
 
 const HANDOFF_KEYWORDS = [
   'mặc cả',
@@ -48,10 +53,9 @@ function isGreetingOrSmallTalk(message) {
   return GREETING_ONLY_PATTERN.test(String(message).trim());
 }
 
-/** Trích "Quận N" từ câu hỏi khách, nếu có — dùng để phát hiện gợi ý thay thế khác quận */
+/** Trích quận từ câu hỏi (Quận N hoặc tên quận) */
 function extractRequestedDistrict(message) {
-  const match = String(message).match(/quận\s*(\d+)/i);
-  return match ? `Quận ${match[1]}` : null;
+  return extractSearchFilters(message).district;
 }
 
 /**
@@ -152,9 +156,8 @@ function buildInfoResult({ sessionId, answer, searchScore = null }) {
   };
 }
 
-function buildSuccessResult({ sessionId, answer, property, searchScore }) {
-  const media = property.anhUrls?.length ? property.anhUrls : [];
-  const matched = {
+function toMatchedCard(property) {
+  return {
     _id: property._id,
     tieuDe: property.tieuDe,
     moTa: property.moTa,
@@ -168,6 +171,44 @@ function buildSuccessResult({ sessionId, answer, property, searchScore }) {
     anhDaiDien: property.anhDaiDien,
     url: property.url,
   };
+}
+
+function formatPriceShort(gia) {
+  const n = Number(gia);
+  if (!Number.isFinite(n)) return '';
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)} tỷ`;
+  if (n >= 1_000_000) return `${Math.round(n / 1_000_000)} triệu`;
+  return `${n.toLocaleString('vi-VN')} VNĐ`;
+}
+
+/** Trả lời nhanh nhiều lựa chọn — không chờ LLM */
+function buildMultiOptionAnswer(properties, filters) {
+  const summary = formatFilterSummary(filters);
+  const header = summary
+    ? `Em tìm thấy ${properties.length} lựa chọn phù hợp (${summary}):`
+    : `Em tìm thấy ${properties.length} lựa chọn phù hợp:`;
+
+  const body = properties
+    .map((p, i) => {
+      const bits = [
+        p.tieuDe || 'Bất động sản',
+        formatPriceShort(p.gia),
+        p.phongNgu != null ? `${p.phongNgu} PN` : null,
+        p.dienTich != null ? `${p.dienTich}m²` : null,
+        p.quanHuyen,
+      ].filter(Boolean);
+      const line = `${i + 1}. ${bits.join(' — ')}`;
+      return p.url ? `${line}\n   ${p.url}` : line;
+    })
+    .join('\n\n');
+
+  return `${header}\n\n${body}\n\nAnh/chị muốn xem chi tiết căn nào, hoặc điều chỉnh giá / khu vực / số phòng ngủ không ạ?`;
+}
+
+function buildSuccessResult({ sessionId, answer, properties, searchScore }) {
+  const list = (Array.isArray(properties) ? properties : [properties]).filter(Boolean);
+  const matched = list.map(toMatchedCard);
+  const media = matched.flatMap((p) => (p.anhUrls?.length ? p.anhUrls : [])).slice(0, 8);
 
   return {
     success: true,
@@ -176,8 +217,8 @@ function buildSuccessResult({ sessionId, answer, property, searchScore }) {
     aiResponse: answer,
     message: answer,
     media,
-    apartments: [matched],
-    matchedProperties: [matched],
+    apartments: matched,
+    matchedProperties: matched,
     searchScore,
     timestamp: new Date().toISOString(),
   };
@@ -214,77 +255,70 @@ async function processAdvisoryMessage(message, sessionId, conversationHistory = 
   }
 
   try {
-    const { results, mode } = await searchProperties(message, { limit: 3 });
-    let top = results[0];
+    const filters = extractSearchFilters(message);
+    const { results, mode, filterApplied } = await searchProperties(message, {
+      limit: 5,
+      filters,
+    });
+    let candidates = [...(results || [])];
+    let top = candidates[0];
     let score = top?.score ?? 0;
-    const threshold = getThresholdForMode(mode);
+    const threshold = mode === 'filter' ? 0.4 : getThresholdForMode(mode);
     const passesTextThreshold = Boolean(top) && score >= threshold;
 
     logger.info(
-      `[AI Pipeline] Search mode=${mode}, top score=${score.toFixed(3)}, threshold=${threshold}`,
+      `[AI Pipeline] Search mode=${mode}, filter=${filterApplied || 'none'}, top score=${Number(score).toFixed(3)}, threshold=${threshold}, hits=${candidates.length}`,
     );
 
-    // Khách hỏi rõ quận cụ thể mà chưa đúng quận đó (dù text search dưới ngưỡng hay match
-    // nhầm quận khác) → thử tìm BĐS ở quận GẦN NHẤT về địa lý thực tế TP.HCM trước khi bỏ cuộc.
-    // Đáng tin cậy hơn nhiều so với việc để model chat :free tự "đoán" khu vực gần.
-    const requestedDistrict = extractRequestedDistrict(message);
+    const requestedDistrict = filters.district || extractRequestedDistrict(message);
     let usedGeoFallback = false;
 
-    if (requestedDistrict) {
-      const currentDistance = passesTextThreshold
-        ? districtDistance(requestedDistrict, top.quanHuyen)
-        : Infinity;
+    if (requestedDistrict && (!passesTextThreshold || (top && districtDistance(requestedDistrict, top.quanHuyen) > 0))) {
+      const catalog = await fetchCatalogFromApi();
+      const nearest = findNearestByDistrict(catalog, requestedDistrict);
+      const currentDistance = top ? districtDistance(requestedDistrict, top.quanHuyen) : Infinity;
 
-      if (currentDistance > 0) {
-        const catalog = await fetchCatalogFromApi();
-        const nearest = findNearestByDistrict(catalog, requestedDistrict);
-
-        // Chỉ coi là "gần" nếu tối đa 3 quận giáp ranh — xa hơn thì không đủ tin cậy để gợi ý
-        if (nearest.property && nearest.distance <= 3 && nearest.distance < currentDistance) {
-          logger.info(
-            `[AI Pipeline] Geo fallback: ${requestedDistrict} không có sẵn — chọn BĐS tại ${nearest.property.quanHuyen} (cách ${nearest.distance} quận về địa lý)`,
-          );
-          top = nearest.property;
-          score = threshold; // đây là lựa chọn theo địa lý có chủ đích, không phải theo điểm text
-          usedGeoFallback = true;
-        }
+      if (nearest.property && nearest.distance <= 3 && nearest.distance < currentDistance) {
+        logger.info(
+          `[AI Pipeline] Geo fallback: ${requestedDistrict} — BĐS tại ${nearest.property.quanHuyen} (cách ${nearest.distance} quận)`,
+        );
+        // Ghép geo candidate + các kết quả khác đã lọc giá/PN nếu có
+        const geoCard = { ...nearest.property, score: threshold };
+        const rest = candidates.filter((c) => String(c._id) !== String(geoCard._id));
+        candidates = [geoCard, ...rest].slice(0, 5);
+        top = candidates[0];
+        score = threshold;
+        usedGeoFallback = true;
       }
     }
 
-    if (!top || (!passesTextThreshold && !usedGeoFallback)) {
+    if (!top || (!passesTextThreshold && !usedGeoFallback && mode !== 'filter')) {
       logger.info(
-        `[AI Pipeline] Không khớp BĐS (mode=${mode}, score=${score.toFixed(3)} < ${threshold}) — hỏi thêm thông tin, không handoff`,
+        `[AI Pipeline] Không khớp BĐS (mode=${mode}, score=${Number(score).toFixed(3)}) — hỏi thêm`,
       );
+      const hint = hasStructuredFilters(filters)
+        ? ` (đã thử theo ${formatFilterSummary(filters)})`
+        : '';
       return buildInfoResult({
         sessionId: resolvedSessionId,
         answer:
-          'Hiện tại tôi chưa tìm thấy bất động sản phù hợp với yêu cầu này trong danh mục. Bạn có thể cho tôi biết thêm về khu vực, ngân sách hoặc số phòng ngủ mong muốn để tôi tìm chính xác hơn không?',
+          `Hiện tại tôi chưa tìm thấy bất động sản phù hợp${hint}. Bạn cho tôi biết thêm khu vực, ngân sách (vd dưới 10 triệu) và số phòng ngủ mong muốn để tôi gợi ý nhiều lựa chọn hơn nhé?`,
         searchScore: score,
       });
     }
 
-    const sanitizedHistory = sanitizeHistoryForProperty(history, top);
-    if (sanitizedHistory.length !== history.length) {
-      logger.info('[AI Pipeline] BĐS đổi khác lượt trước — bỏ câu trả lời AI cũ khỏi prompt để tránh lẫn thông tin');
+    // Trả lời nhanh bằng template + nhiều thẻ BĐS — không chờ LLM (tăng tốc hiển thị)
+    let answer = buildMultiOptionAnswer(candidates, filters);
+    if (isAlternativeSuggestion(message, top)) {
+      answer = prependAlternativeNotice(answer, message, top);
     }
-
-    const isAlternative = isAlternativeSuggestion(message, top);
-    if (isAlternative) {
-      logger.info(`[AI Pipeline] Gợi ý thay thế: khách hỏi ${extractRequestedDistrict(message)}, match được ${top.quanHuyen}`);
-    }
-
-    const rawAnswer = await generateAdvisoryReply({
-      userQuestion: message,
-      property: top,
-      conversationHistory: sanitizedHistory,
-      isAlternative,
-    });
-    const answer = ensureLinkInAnswer(prependAlternativeNotice(rawAnswer, message, top), top);
-
+    // Đảm bảo link căn đầu có trong text
+    answer = ensureLinkInAnswer(answer, top);
+    logger.info(`[AI Pipeline] Fast multi-option reply: ${candidates.length} BĐS (skip LLM)`);
     return buildSuccessResult({
       sessionId: resolvedSessionId,
       answer,
-      property: top,
+      properties: candidates,
       searchScore: score,
     });
   } catch (apiError) {

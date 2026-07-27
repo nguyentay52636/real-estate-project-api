@@ -2,6 +2,11 @@ import logger from '#shared/utils/logger.js';
 import { fetchCatalogFromApi, fetchCatalogWithEmbeddings } from './crmKnowledgeCatalogClient.js';
 import { isFuzzyWordMatch } from '#shared/utils/fuzzyMatch.js';
 import { embed, hasEmbeddingProvider } from './embeddingService.js';
+import {
+  extractSearchFilters,
+  filterCatalogProgressive,
+  hasStructuredFilters,
+} from './searchFilters.js';
 
 const VECTOR_THRESHOLD = parseFloat(process.env.VECTOR_SIMILARITY_THRESHOLD || '0.6');
 const TEXT_THRESHOLD = parseFloat(process.env.VECTOR_TEXT_SEARCH_THRESHOLD || '0.3');
@@ -158,27 +163,61 @@ async function trySemanticSearch(message, options) {
  * hoặc lỗi (hết credit, thiếu provider...) thì rơi xuống tìm theo từ khóa trên catalog.
  */
 async function searchProperties(message, options = {}) {
+  const limit = options.limit ?? 5;
+  const filters = options.filters || extractSearchFilters(message);
+  const fetchLimit = Math.max(limit * 4, 20);
+
+  let mode = 'text';
+  let scored = [];
+
   try {
-    const semanticResult = await trySemanticSearch(message, options);
-    if (semanticResult) {
-      logger.debug(`[VectorSearch] Semantic: ${semanticResult.results.length} kết quả`);
-      return semanticResult;
+    const semanticResult = await trySemanticSearch(message, { ...options, limit: fetchLimit });
+    if (semanticResult?.results?.length) {
+      scored = semanticResult.results;
+      mode = semanticResult.mode;
+      logger.debug(`[VectorSearch] Semantic: ${scored.length} kết quả`);
     }
   } catch (error) {
     logger.warn(`[VectorSearch] Semantic search lỗi (${error.message}) — fallback text search`);
   }
 
-  const catalog = await fetchCatalogFromApi();
-
-  logger.debug(`[VectorSearch] Catalog từ API: ${catalog.length} bài`);
-
-  if (!catalog.length) {
-    return { results: [], mode: 'catalog' };
+  let catalog = [];
+  if (!scored.length) {
+    catalog = await fetchCatalogFromApi();
+    logger.debug(`[VectorSearch] Catalog từ API: ${catalog.length} bài`);
+    if (!catalog.length) {
+      return { results: [], mode: 'catalog', filters, filterApplied: 'none' };
+    }
+  } else {
+    catalog = scored;
   }
 
-  const results = searchByText(message, catalog, options);
-  return { results, mode: 'text' };
+  const { pool, applied } = filterCatalogProgressive(catalog, filters);
+  if (hasStructuredFilters(filters)) {
+    logger.info(`[VectorSearch] Filters=${JSON.stringify(filters)} applied=${applied} pool=${pool.length}`);
+  }
+
+  if (pool.some((d) => typeof d.score === 'number')) {
+    const results = [...pool].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, limit);
+    return { results, mode, filters, filterApplied: applied };
+  }
+
+  const textResults = searchByText(message, pool, { limit });
+  if (!textResults.length && pool.length && hasStructuredFilters(filters)) {
+    const byPrice = [...pool]
+      .sort((a, b) => Number(a.gia || 0) - Number(b.gia || 0))
+      .slice(0, limit)
+      .map((d) => ({ ...d, score: 0.55 }));
+    return { results: byPrice, mode: 'filter', filters, filterApplied: applied };
+  }
+
+  return {
+    results: textResults,
+    mode: scored.length ? mode : 'text',
+    filters,
+    filterApplied: applied,
+  };
 }
 
-export { searchByText, searchByEmbedding, searchProperties, cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD, scoreDocByText };
-export default { searchByText, searchByEmbedding, searchProperties, cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD, scoreDocByText };
+export { searchByText, searchByEmbedding, searchProperties, cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD, scoreDocByText, extractSearchFilters };
+export default { searchByText, searchByEmbedding, searchProperties, cosineSimilarity, getThresholdForMode, VECTOR_THRESHOLD, TEXT_THRESHOLD, scoreDocByText, extractSearchFilters };
