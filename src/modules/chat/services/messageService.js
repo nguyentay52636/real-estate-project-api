@@ -6,7 +6,7 @@ import { maybeLean, maybeSelect } from '#shared/utils/queryHelpers.js';
 
 const SENDER_FIELDS = 'ten anhDaiDien';
 const ROOM_FIELDS = 'tenPhong loaiPhong';
-const VALID_MESSAGE_TYPES = ['text', 'image', 'cuoc_goi', 'system'];
+const VALID_MESSAGE_TYPES = ['text', 'image', 'audio', 'cuoc_goi', 'system'];
 const VALID_CALL_TYPES = ['audio', 'video'];
 const VALID_CALL_STATUSES = ['missed', 'ended', 'declined', 'ongoing'];
 const DEFAULT_MESSAGE_LIMIT = 50;
@@ -21,6 +21,10 @@ function parseMessagePagination({ limit, before, after, page } = {}) {
     after: after ? new Date(after) : null,
     skip: page ? (pageNum - 1) * limitNum : 0,
   };
+}
+
+function hasTapTin(tapTin) {
+  return Array.isArray(tapTin) ? tapTin.length > 0 : Boolean(tapTin);
 }
 
 export function createMessageService(deps = {}) {
@@ -56,7 +60,7 @@ export function createMessageService(deps = {}) {
   }
 
   async function getMessages(roomId, userId, query = {}) {
-    await checkRoomAccess(roomId, userId);
+    const { member } = await checkRoomAccess(roomId, userId);
     const { limitNum, pageNum, before, after, skip } = parseMessagePagination(query);
 
     const filter = { roomId };
@@ -65,6 +69,13 @@ export function createMessageService(deps = {}) {
     }
     if (after && !Number.isNaN(after.getTime())) {
       filter.createdAt = { ...(filter.createdAt || {}), $gt: after };
+    }
+    // Ẩn lịch sử chỉ với user đã "xoá đoạn chat" (anTinTruocLuc)
+    if (member?.anTinTruocLuc) {
+      const cutoff = new Date(member.anTinTruocLuc);
+      if (!Number.isNaN(cutoff.getTime())) {
+        filter.createdAt = { ...(filter.createdAt || {}), $gt: cutoff };
+      }
     }
 
     let findQuery = Message.find(filter).sort({ createdAt: before ? -1 : 1 });
@@ -97,7 +108,7 @@ export function createMessageService(deps = {}) {
   async function createMessage(input, nguoiGuiId) {
     const { roomId, noiDung, tapTin, phanHoiTinNhan, loaiTinNhan } = input;
 
-    if (!roomId || !nguoiGuiId || (!noiDung && !tapTin && loaiTinNhan !== 'system')) {
+    if (!roomId || !nguoiGuiId || (!noiDung && !hasTapTin(tapTin) && loaiTinNhan !== 'system')) {
       throw new AppError('Thiếu thông tin bắt buộc', 400);
     }
 
@@ -235,7 +246,12 @@ export function createMessageService(deps = {}) {
     return maybeLean(
       Message.findByIdAndUpdate(
         id,
-        { noiDung: '[Tin nhắn đã được thu hồi]', trangThai: 'recalled' },
+        {
+          noiDung: '[Tin nhắn đã được thu hồi]',
+          trangThai: 'recalled',
+          tapTin: [],
+          hinhAnh: '',
+        },
         { new: true },
       )
         .populate('nguoiGuiId', SENDER_FIELDS)
@@ -341,10 +357,8 @@ export function createMessageService(deps = {}) {
     return deleted;
   }
 
-  async function socketRecallMessage(id, userId, io) {
-    const updated = await recallMessage(id, userId);
-    if (io) io.to(String(updated.roomId)).emit('recalledMessage', updated);
-    return updated;
+  async function socketRecallMessage(id, userId) {
+    return recallMessage(id, userId);
   }
 
   return {

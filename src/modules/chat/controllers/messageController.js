@@ -1,5 +1,6 @@
 // controllers/messageController.js
 import messageService from '#modules/chat/services/messageService.js';
+import { buildMessagePayloadWithUploads } from '#modules/chat/utils/messageAttachments.js';
 import { asyncHandler } from '#shared/http/asyncHandler.js';
 import { AppError } from '#shared/errors/AppError.js';
 
@@ -20,7 +21,9 @@ const getMessages = asyncHandler(async (req, res) => {
 
 const createMessageHandler = asyncHandler(async (req, res) => {
   const userId = requireUserId(req);
-  const message = await messageService.createMessage(req.body, userId);
+  const files = req.files?.length ? req.files : req.file ? [req.file] : [];
+  const payload = await buildMessagePayloadWithUploads(req.body, files);
+  const message = await messageService.createMessage(payload, userId);
   return res.status(201).json(message);
 });
 

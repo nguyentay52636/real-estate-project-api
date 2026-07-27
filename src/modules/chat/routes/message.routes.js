@@ -1,7 +1,7 @@
 // routes/messageRoutes.js
 import express from 'express';
 import middlewareController from '#shared/middleware/auth.js';
-import upload from '#modules/upload/middleware/upload.js';
+import uploadChatMemory from '#modules/upload/middleware/uploadChatMemory.js';
 import { getMessages,
   createMessageHandler,
   createCallMessage,
@@ -22,7 +22,7 @@ router.get('/:roomId/search', searchMessages);
 router.put('/:roomId/pin/:messageId', pinMessage);
 router.put('/:roomId/unpin/:messageId', unpinMessage);
 router.get('/:roomId', getMessages);
-router.post('/', upload.array('tapTin', 5), createMessageHandler);
+router.post('/', uploadChatMemory.array('tapTin', 5), createMessageHandler);
 router.put('/:id', updateMessageHandler);
 router.delete('/:id', deleteMessageHandler);
 router.put('/:id/recall', recallMessage);

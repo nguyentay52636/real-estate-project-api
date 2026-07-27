@@ -65,6 +65,36 @@ describe('messageService.createMessage', () => {
       (err) => err instanceof AppError && err.statusCode === 400,
     );
   });
+
+  it('accepts audio message with tapTin only', async () => {
+    const room = roomWith([
+      { nguoiDung: 'u1', trangThai: 'active' },
+      { nguoiDung: 'u2', trangThai: 'active' },
+    ]);
+    const created = { _id: 'm1', roomId: 'r1', tapTin: ['https://res.cloudinary.com/x/v.webm'] };
+    const Message = {
+      create: mock.fn(async (doc) => ({ ...created, ...doc })),
+      findById: mock.fn(() => ({
+        populate: () => ({ populate: () => ({ populate: () => Promise.resolve(created) }) }),
+      })),
+    };
+    const Room = {
+      findById: mock.fn(async () => room),
+      findByIdAndUpdate: mock.fn(async () => ({})),
+    };
+    const Notification = { insertMany: mock.fn(async () => []) };
+    const service = createMessageService({ Room, Message, Notification });
+
+    const result = await service.createMessage(
+      {
+        roomId: 'r1',
+        loaiTinNhan: 'audio',
+        tapTin: ['https://res.cloudinary.com/dnltiwxvo/video/upload/v1/chat-audio/v.webm'],
+      },
+      'u1',
+    );
+    assert.equal(result.tapTin[0], 'https://res.cloudinary.com/x/v.webm');
+  });
 });
 
 describe('messageService.updateMessage', () => {

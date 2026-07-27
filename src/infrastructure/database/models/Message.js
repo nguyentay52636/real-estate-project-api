@@ -12,7 +12,7 @@ const TinNhanSchema = new mongoose.Schema({
   },
   daDoc: [{ type: mongoose.Schema.Types.ObjectId, ref: 'nguoiDung' }],
   trangThai: { type: String, enum: ['sent', 'edited', 'deleted', 'recalled'], default: 'sent' },
-  loaiTinNhan: { type: String, enum: ['text', 'image', 'cuoc_goi', 'system'], default: 'text' },
+  loaiTinNhan: { type: String, enum: ['text', 'image', 'audio', 'cuoc_goi', 'system'], default: 'text' },
   cuocGoi: {
     trangThai: { type: String, enum: ['missed', 'ended', 'declined', 'ongoing'], default: 'missed' },
     thoiLuong: { type: Number, default: 0 },

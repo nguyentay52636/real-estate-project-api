@@ -38,6 +38,13 @@ const PhongChatSchema = new mongoose.Schema({
       enum: ['active', 'left'],
       default: 'active',
     },
+    /** Xóa lịch sử chỉ phía user này (Messenger "Delete for you").
+     * Tin có createdAt <= mốc này không trả về cho user khi GET messages.
+     * Thành viên khác vẫn thấy đầy đủ. Tin mới sau mốc vẫn hiện. */
+    anTinTruocLuc: {
+      type: Date,
+      default: null,
+    },
   }],
   nguoiTao: {
     type: mongoose.Schema.Types.ObjectId,

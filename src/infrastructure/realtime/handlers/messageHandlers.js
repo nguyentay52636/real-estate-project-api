@@ -1,6 +1,6 @@
 import TinNhan from '#models/Message.js';
 import PhongChat from '#models/ChatRoom.js';
-import { createMessage, updateMessage, deleteMessage } from '#modules/chat/controllers/messageController.js';
+import { createMessage, updateMessage, deleteMessage, recallMessageSocket } from '#modules/chat/controllers/messageController.js';
 import { emitError,
   isValidId,
   isAdmin,
@@ -227,6 +227,55 @@ function registerMessageHandlers(socket, io) {
 
       io.to(roomId).emit('message:deleted', deleted);
     }, 'DELETE_MESSAGE_FAILED')
+  );
+
+  socket.on(
+    'message:recall',
+    wrapHandler(socket, async ({ id, roomId }) => {
+      if (!id || !roomId) {
+        emitError(socket, 'INVALID_DATA', 'Thiếu dữ liệu thu hồi');
+        return;
+      }
+      if (!isValidId(id) || !isValidId(roomId)) {
+        emitError(socket, 'INVALID_ID', 'ID tin nhắn hoặc phòng không hợp lệ');
+        return;
+      }
+      if (!socket.rooms.has(roomId)) {
+        emitError(socket, 'NOT_IN_ROOM', 'Bạn phải tham gia phòng trước');
+        return;
+      }
+
+      const existingMessage = await TinNhan.findById(id).select('nguoiGuiId trangThai');
+      if (!existingMessage) {
+        emitError(socket, 'MESSAGE_NOT_FOUND', 'Không tìm thấy tin nhắn');
+        return;
+      }
+      if (existingMessage.trangThai === 'recalled') {
+        emitError(socket, 'ALREADY_RECALLED', 'Tin nhắn đã được thu hồi');
+        return;
+      }
+      if (existingMessage.nguoiGuiId.toString() !== socket.user.id) {
+        emitError(socket, 'UNAUTHORIZED', 'Chỉ người gửi mới được thu hồi tin nhắn');
+        return;
+      }
+
+      const recalled = await recallMessageSocket(id, socket.user.id, io);
+      if (!recalled) {
+        emitError(socket, 'RECALL_FAILED', 'Thu hồi tin nhắn thất bại');
+        return;
+      }
+
+      const populatedMessage = await populateMessage(id);
+      io.to(roomId).emit('message:recalled', populatedMessage);
+      const room = await PhongChat.findById(roomId).select('thanhVien');
+      if (room?.thanhVien?.length) {
+        for (const m of room.thanhVien) {
+          if (m.trangThai !== 'active') continue;
+          const uid = m.nguoiDung?.toString?.() || String(m.nguoiDung);
+          if (uid) io.to(uid).emit('message:recalled', populatedMessage);
+        }
+      }
+    }, 'RECALL_MESSAGE_FAILED')
   );
 
   socket.on(
