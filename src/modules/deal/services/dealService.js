@@ -1,5 +1,7 @@
 import Deal from '#models/Deal.js';
 import Property from '#models/Property.js';
+import Team from '#models/Team.js';
+import NguoiDung from '#models/User.js';
 import { AppError } from '#shared/errors/AppError.js';
 import { writeAuditLog } from '#shared/services/auditLogService.js';
 import propertyService from '#modules/property/services/propertyService.js';
@@ -110,10 +112,29 @@ export function createDealService(deps = {}) {
       filter.tieuDe = { $regex: query.q.trim(), $options: 'i' };
     }
 
+    const dateField = query.dateField === 'ngayChot' ? 'ngayChot' : 'createdAt';
+    if (query.from || query.to) {
+      filter[dateField] = {};
+      if (query.from) filter[dateField].$gte = new Date(query.from);
+      if (query.to) filter[dateField].$lte = new Date(query.to);
+    }
+
     const role = actor?.vaiTro;
     const isFullAccess = role === 'admin' || role === 'quan_tri_vien' || role === 'ke_toan';
     if (!isFullAccess && actor?.id) {
-      filter.$or = [{ nhanVienId: actor.id }, { nguoiTaoId: actor.id }];
+      const TeamModel = deps.Team ?? Team;
+      const myTeams = await TeamModel.find({
+        $or: [{ truongNhomId: actor.id }, { thanhVienIds: actor.id }],
+        trangThai: 'dang_hoat_dong',
+      })
+        .select('_id')
+        .lean();
+      const teamIds = myTeams.map((t) => t._id);
+      filter.$or = [
+        { nhanVienId: actor.id },
+        { nguoiTaoId: actor.id },
+        ...(teamIds.length ? [{ nhomId: { $in: teamIds } }] : []),
+      ];
     }
     return filter;
   }
@@ -432,27 +453,91 @@ export function createDealService(deps = {}) {
     return { id };
   }
 
-  async function dealStats(actor) {
-    const filter = await buildFilter({}, actor);
-    const rows = await DealModel.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$trangThai',
-          count: { $sum: 1 },
-          doanhThu: {
-            $sum: {
-              $cond: [{ $eq: ['$trangThai', 'chot'] }, { $ifNull: ['$giaChot', 0] }, 0],
+  async function dealStats(actor, query = {}) {
+    const filter = await buildFilter(query, actor);
+    const slaHours = Math.min(168, Math.max(1, parseInt(query.slaHours, 10) || 24));
+    const slaSince = new Date(Date.now() - slaHours * 60 * 60 * 1000);
+
+    const [rows, byMonthRows, bySaleRows, byNguonRows, slaCount, receipts] = await Promise.all([
+      DealModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$trangThai',
+            count: { $sum: 1 },
+            doanhThu: {
+              $sum: {
+                $cond: [{ $eq: ['$trangThai', 'chot'] }, { $ifNull: ['$giaChot', 0] }, 0],
+              },
             },
-          },
-          hoaHong: {
-            $sum: {
-              $cond: [{ $eq: ['$trangThai', 'chot'] }, { $ifNull: ['$hoaHongSoTien', 0] }, 0],
+            hoaHong: {
+              $sum: {
+                $cond: [{ $eq: ['$trangThai', 'chot'] }, { $ifNull: ['$hoaHongSoTien', 0] }, 0],
+              },
             },
           },
         },
-      },
+      ]),
+      DealModel.aggregate([
+        {
+          $match: {
+            ...filter,
+            trangThai: 'chot',
+            ...(filter.ngayChot
+              ? {}
+              : { ngayChot: { $ne: null } }),
+          },
+        },
+        {
+          $group: {
+            _id: {
+              y: { $year: '$ngayChot' },
+              m: { $month: '$ngayChot' },
+            },
+            doanhThu: { $sum: { $ifNull: ['$giaChot', 0] } },
+            hoaHong: { $sum: { $ifNull: ['$hoaHongSoTien', 0] } },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { '_id.y': 1, '_id.m': 1 } },
+        { $limit: 12 },
+      ]),
+      DealModel.aggregate([
+        { $match: { ...filter, trangThai: 'chot' } },
+        {
+          $group: {
+            _id: '$nhanVienId',
+            chot: { $sum: 1 },
+            doanhThu: { $sum: { $ifNull: ['$giaChot', 0] } },
+            hoaHong: { $sum: { $ifNull: ['$hoaHongSoTien', 0] } },
+          },
+        },
+        { $sort: { doanhThu: -1 } },
+        { $limit: 20 },
+      ]),
+      DealModel.aggregate([
+        { $match: { ...filter, trangThai: 'chot' } },
+        {
+          $group: {
+            _id: '$nguonLead',
+            count: { $sum: 1 },
+            doanhThu: { $sum: { $ifNull: ['$giaChot', 0] } },
+          },
+        },
+        { $sort: { doanhThu: -1 } },
+      ]),
+      DealModel.countDocuments({
+        ...filter,
+        trangThai: { $in: ['moi', 'lien_he'] },
+        updatedAt: { $lte: slaSince },
+      }),
+      populateDeal(
+        DealModel.find({ ...filter, trangThai: 'chot' })
+          .sort({ ngayChot: -1, updatedAt: -1 })
+          .limit(30),
+      ),
     ]);
+
     const byStatus = Object.fromEntries(VALID_STATUS.map((s) => [s, 0]));
     let doanhThu = 0;
     let hoaHong = 0;
@@ -461,7 +546,76 @@ export function createDealService(deps = {}) {
       doanhThu += r.doanhThu || 0;
       hoaHong += r.hoaHong || 0;
     }
-    return { byStatus, doanhThu, hoaHong, total: Object.values(byStatus).reduce((a, b) => a + b, 0) };
+
+    const userIds = bySaleRows.map((r) => r._id).filter(Boolean);
+    const users = userIds.length
+      ? await NguoiDung.find({ _id: { $in: userIds } })
+          .select('ten email')
+          .lean()
+      : [];
+    const userMap = Object.fromEntries(users.map((u) => [String(u._id), u]));
+
+    const pipelineOpen =
+      (byStatus.moi || 0) +
+      (byStatus.lien_he || 0) +
+      (byStatus.hen_xem || 0) +
+      (byStatus.da_xem || 0);
+    const seen = (byStatus.da_xem || 0) + (byStatus.chot || 0);
+    const winRate = seen > 0 ? Math.round(((byStatus.chot || 0) / seen) * 100) : 0;
+
+    return {
+      byStatus,
+      doanhThu,
+      hoaHong,
+      total: Object.values(byStatus).reduce((a, b) => a + b, 0),
+      pipelineOpen,
+      winRate,
+      sla: {
+        hours: slaHours,
+        stuck: slaCount,
+        label: `Lead > ${slaHours}h chưa đụng`,
+      },
+      byMonth: byMonthRows.map((r) => ({
+        year: r._id.y,
+        month: r._id.m,
+        label: `T${r._id.m}/${String(r._id.y).slice(-2)}`,
+        doanhThu: r.doanhThu,
+        hoaHong: r.hoaHong,
+        count: r.count,
+      })),
+      bySale: bySaleRows.map((r) => {
+        const u = r._id ? userMap[String(r._id)] : null;
+        return {
+          nhanVienId: r._id ? String(r._id) : null,
+          ten: u?.ten || u?.email || (r._id ? 'Sale' : 'Chưa gán'),
+          chot: r.chot,
+          doanhThu: r.doanhThu,
+          hoaHong: r.hoaHong,
+        };
+      }),
+      byNguon: byNguonRows.map((r) => ({
+        nguonLead: r._id || 'thu_cong',
+        count: r.count,
+        doanhThu: r.doanhThu,
+      })),
+      /** Phiếu thu đơn giản = deal đã chốt (không sổ quỹ riêng) */
+      receipts: receipts.map((d) => ({
+        _id: d._id,
+        tieuDe: d.tieuDe,
+        giaChot: d.giaChot,
+        hoaHongSoTien: d.hoaHongSoTien,
+        ngayChot: d.ngayChot,
+        loaiGiaoDich: d.loaiGiaoDich,
+        nhanVien:
+          typeof d.nhanVienId === 'object' && d.nhanVienId
+            ? d.nhanVienId.ten || d.nhanVienId.email
+            : null,
+        batDongSan:
+          typeof d.batDongSanId === 'object' && d.batDongSanId
+            ? d.batDongSanId.tieuDe
+            : null,
+      })),
+    };
   }
 
   return {

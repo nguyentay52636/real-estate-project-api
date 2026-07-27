@@ -12,6 +12,10 @@ import {
   dismissAllHandoffNotifications,
   resolveHandoffTicket,
   cancelHandoffTicket,
+  cancelHandoffTicketByGuest,
+  reopenHandoffTicket,
+  deleteHandoffTicket,
+  deleteHandoffTicketsBulk,
 } from '#modules/ai/services/handoffService.js';
 import { processAdvisoryMessage } from '#modules/ai/services/aiAdvisoryPipeline.js';
 import { hasEmbeddingProvider } from '#modules/ai/services/embeddingService.js';
@@ -323,6 +327,32 @@ export const deleteHandoff = async (req, res) => {
   } catch (error) {
     const status = error.message.includes('admin') ? 403 : 400;
     return res.status(status).json({ success: false, error: error.message });
+  }
+};
+
+export const deleteHandoffsBulk = async (req, res) => {
+  try {
+    const adminId = req.user?.id;
+    if (!adminId) {
+      return res.status(401).json({ success: false, error: 'Bạn chưa đăng nhập' });
+    }
+
+    const handoffTokens = Array.isArray(req.body?.handoffTokens)
+      ? req.body.handoffTokens
+      : undefined;
+    const status = typeof req.body?.status === 'string' ? req.body.status : undefined;
+
+    if ((!handoffTokens || handoffTokens.length === 0) && !status) {
+      // Mặc định: xóa toàn bộ đã hủy
+      const result = await deleteHandoffTicketsBulk(adminId, { status: 'cancelled' });
+      return res.status(200).json(result);
+    }
+
+    const result = await deleteHandoffTicketsBulk(adminId, { handoffTokens, status });
+    return res.status(200).json(result);
+  } catch (error) {
+    const statusCode = error.message.includes('admin') ? 403 : 400;
+    return res.status(statusCode).json({ success: false, error: error.message });
   }
 };
 

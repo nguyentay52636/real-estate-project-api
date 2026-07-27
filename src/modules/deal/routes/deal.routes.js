@@ -7,6 +7,7 @@ const router = express.Router();
 const staff = authorizeRoles('admin', 'quan_tri_vien', 'nhan_vien', 'ke_toan', 'sale');
 
 router.get('/stats', staff, dealController.stats);
+router.get('/audit/recent', staff, dealController.recentAudit);
 router.get('/', staff, dealController.list);
 router.post('/', staff, dealController.create);
 router.get('/:id/audit', staff, dealController.audit);

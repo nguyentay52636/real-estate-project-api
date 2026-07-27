@@ -15,6 +15,7 @@ import {
   cancelHandoffByGuest,
   reopenHandoff,
   deleteHandoff,
+  deleteHandoffsBulk,
   searchApartment,
 } from '#modules/ai/controllers/aiChatController.js';
 
@@ -29,6 +30,7 @@ router.post('/handoff', requestHandoff);
 router.get('/handoff/pending', middlewareController.verifyToken, getPendingHandoffs);
 router.get('/handoff/all', middlewareController.verifyAdmin, getAllHandoffs);
 router.delete('/handoff/dismiss-all', middlewareController.verifyToken, dismissAllHandoffs);
+router.post('/handoff/bulk-delete', middlewareController.verifyAdmin, deleteHandoffsBulk);
 router.get('/handoff/:handoffToken/status', getHandoffStatus);
 router.delete('/handoff/:handoffToken/dismiss', middlewareController.verifyToken, dismissHandoff);
 router.post('/handoff/:handoffToken/accept', middlewareController.verifyToken, acceptHandoff);

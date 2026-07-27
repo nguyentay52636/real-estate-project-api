@@ -16,6 +16,9 @@ const dirname = getDirname(import.meta.url);
 export function createApp() {
   const app = express();
 
+  // Render / reverse proxy — cần để rate-limit lấy đúng IP client
+  app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
+
   app.use(cors({
     origin: corsOriginDelegate,
     credentials: true,
