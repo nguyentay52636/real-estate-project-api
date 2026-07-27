@@ -2,7 +2,8 @@ import express from 'express';
 import uploadController from '#modules/upload/controllers/uploadController.js';
 import middlewareController from '#shared/middleware/auth.js';
 import uploadLocal from '#modules/upload/middleware/uploadLocal.js';
-import uploadMemory from '#modules/upload/middleware/uploadMemory.js';
+import uploadMediaMemory from '#modules/upload/middleware/uploadMediaMemory.js';
+import uploadChatMemory from '#modules/upload/middleware/uploadChatMemory.js';
 
 const router = express.Router();
 
@@ -102,7 +103,7 @@ router.post(
 router.post(
   '/cloudinary',
   middlewareController.verifyToken,
-  uploadMemory.single('file'),
+  uploadMediaMemory.single('file'),
   handleUploadError,
   uploadController.uploadCloudinary
 );
@@ -146,7 +147,7 @@ router.post(
 router.post(
   '/',
   middlewareController.verifyToken,
-  uploadMemory.single('file'),
+  uploadMediaMemory.single('file'),
   handleUploadError,
   uploadController.uploadAuto
 );
@@ -189,9 +190,50 @@ router.post(
 router.post(
   '/many',
   middlewareController.verifyToken,
-  uploadMemory.array('files', 12),
+  uploadMediaMemory.array('files', 12),
   handleUploadError,
   uploadController.uploadMany
+);
+
+/**
+ * @swagger
+ * /api/upload/chat-audio:
+ *   post:
+ *     summary: Upload audio tin nhắn chat (Cloudinary → local)
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: folder
+ *         schema:
+ *           type: string
+ *           default: chat-audio
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Upload audio thành công — dùng data.url trong tapTin khi gửi tin nhắn
+ *       400:
+ *         description: Thiếu file hoặc định dạng không hợp lệ
+ *       401:
+ *         description: Chưa đăng nhập
+ */
+router.post(
+  '/chat-audio',
+  middlewareController.verifyToken,
+  uploadChatMemory.single('file'),
+  handleUploadError,
+  uploadController.uploadChatAudio
 );
 
 export default router;

@@ -64,6 +64,7 @@ const uploadController = {
         req.file.buffer,
         req.file.originalname,
         folder,
+        { mimetype: req.file.mimetype },
       );
 
       return res.status(201).json(buildUploadResponse(uploaded, req.file));
@@ -86,6 +87,7 @@ const uploadController = {
         req.file.buffer,
         req.file.originalname,
         folder,
+        { mimetype: req.file.mimetype },
       );
 
       return res.status(201).json(buildUploadResponse(uploaded, req.file));
@@ -114,6 +116,7 @@ const uploadController = {
           file.buffer,
           file.originalname,
           folder,
+          { mimetype: file.mimetype },
         );
         items.push({
           storage: uploaded.storage,
@@ -139,6 +142,29 @@ const uploadController = {
       });
     } catch (error) {
       return res.status(500).json({ message: 'Lỗi upload nhiều ảnh', error: error.message });
+    }
+  },
+
+  /**
+   * Upload audio chat (Cloudinary → local). folder mặc định chat-audio.
+   */
+  uploadChatAudio: async (req, res) => {
+    try {
+      if (!req.file?.buffer) {
+        return res.status(400).json({ message: 'Vui lòng tải lên file audio (field: file)' });
+      }
+
+      const folder = sanitizeFolder(req.query.folder || 'chat-audio');
+      const uploaded = await uploadBufferWithFallback(
+        req.file.buffer,
+        req.file.originalname,
+        folder,
+        { mimetype: req.file.mimetype },
+      );
+
+      return res.status(201).json(buildUploadResponse(uploaded, req.file));
+    } catch (error) {
+      return res.status(500).json({ message: 'Lỗi upload audio chat', error: error.message });
     }
   },
 };

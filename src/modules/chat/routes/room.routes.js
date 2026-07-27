@@ -45,6 +45,9 @@ router.post('/:roomId/leave', roomController.leaveRoom);
 // Hide room from a single user's own conversation list - không cần auth
 router.patch('/:roomId/hide', roomController.hideRoom);
 
+// Xóa lịch sử chỉ phía user hiện tại (tin vẫn còn với người kia)
+router.post('/:roomId/clear-history', roomController.clearHistoryForMe);
+
 // Transfer admin role - không cần auth
 router.put('/:roomId/transfer-admin', roomController.transferAdmin);
 

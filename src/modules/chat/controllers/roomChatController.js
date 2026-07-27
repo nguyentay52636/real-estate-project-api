@@ -674,6 +674,38 @@ const hideRoom = async (req, res) => {
   }
 };
 
+/** Xóa lịch sử đoạn chat chỉ phía 1 user (tin vẫn còn với thành viên khác). */
+const clearHistoryForMe = async (req, res) => {
+  const { roomId } = req.params;
+  const userId = req.body?.userId || req.user?.id || req.user?._id;
+
+  if (!userId) {
+    return res.status(400).json({ message: 'Thiếu thông tin userId' });
+  }
+
+  try {
+    const room = await PhongChat.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Không tìm thấy phòng chat' });
+    }
+
+    const member = room.thanhVien.find((m) => m.nguoiDung.toString() === userId.toString());
+    if (!member || member.trangThai !== 'active') {
+      return res.status(403).json({ message: 'Người dùng không thuộc phòng chat' });
+    }
+
+    member.anTinTruocLuc = new Date();
+    await room.save();
+
+    res.status(200).json({
+      message: 'Đã xóa lịch sử phía bạn',
+      anTinTruocLuc: member.anTinTruocLuc,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi xóa lịch sử chat', error: error.message });
+  }
+};
+
 // Rời phòng chat nhóm
 const leaveRoom = async (req, res) => {
   const { roomId } = req.params;
@@ -821,5 +853,5 @@ const transferAdmin = async (req, res) => {
   }
 };
 
-export { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, hideRoom, leaveRoom, transferAdmin };
-export default { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, hideRoom, leaveRoom, transferAdmin };
+export { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, hideRoom, clearHistoryForMe, leaveRoom, transferAdmin };
+export default { getAllRom, getRoomsOfUser, getRoomById, createRoom, findOrCreatePrivateRoom, addMessageToRoom, removeMessageFromRoom, updateRoom, deleteRoom, searchRooms, addMemberToRoom, hideRoom, clearHistoryForMe, leaveRoom, transferAdmin };

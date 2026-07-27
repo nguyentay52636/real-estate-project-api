@@ -2,16 +2,26 @@ import cloudinary from '#infra/storage/cloudinary.js';
 import { uploadFromBuffer } from '#infra/storage/cloudinaryService.js';
 import { sanitizeFolder, saveBufferLocal } from '#infra/storage/localUploadService.js';
 
+/** Cloudinary dùng resource_type video cho audio (webm, mp3, …). */
+export function resolveCloudinaryResourceType(mimetype = '') {
+  const mime = String(mimetype).split(';')[0].trim().toLowerCase();
+  if (mime.startsWith('audio/') || mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('image/')) return 'image';
+  return 'raw';
+}
+
 /**
- * Upload 1 ảnh: thử Cloudinary trước, lỗi thì lưu local images/.
+ * Upload 1 file (ảnh/audio/…): thử Cloudinary trước, lỗi thì lưu local images/.
+ * @param {{ mimetype?: string, resourceType?: string }} [opts]
  * @returns {{ url: string, storage: 'cloudinary'|'local', fallbackReason?: string, meta: object }}
  */
-export async function uploadBufferWithFallback(buffer, originalName, folder = 'uploads') {
+export async function uploadBufferWithFallback(buffer, originalName, folder = 'uploads', opts = {}) {
   if (!buffer) {
-    throw new Error('Thiếu buffer ảnh');
+    throw new Error('Thiếu buffer file');
   }
 
   const safeFolder = sanitizeFolder(folder);
+  const resource_type = opts.resourceType || resolveCloudinaryResourceType(opts.mimetype);
 
   try {
     const ready = await cloudinary.verifyConnection();
@@ -19,7 +29,7 @@ export async function uploadBufferWithFallback(buffer, originalName, folder = 'u
       throw new Error(ready.message || 'Cloudinary chưa sẵn sàng');
     }
 
-    const result = await uploadFromBuffer(buffer, { folder: safeFolder });
+    const result = await uploadFromBuffer(buffer, { folder: safeFolder, resource_type });
     return {
       url: result.secure_url,
       storage: 'cloudinary',
@@ -69,4 +79,4 @@ export function sanitizeMediaUrl(url) {
   return first || '';
 }
 
-export default { uploadBufferWithFallback, sanitizeMediaUrls, sanitizeMediaUrl };
+export default { uploadBufferWithFallback, sanitizeMediaUrls, sanitizeMediaUrl, resolveCloudinaryResourceType };
