@@ -17,6 +17,11 @@ Khách: chỉ lịch của mình; tạo lịch gán nguoiDungId = mình
 chu_tro: lịch mình + lịch trên tin mình sở hữu
 Staff: xem tất cả
 Get/update/delete: check quyền (booker / chủ tin / staff)
-5. Rate limit
-Login / register / forgot / reset: tối đa 30 req / 15 phút / IP (AUTH_RATE_LIMIT_MAX)
-Deploy lên Render rồi test lại FE (favorite + viewing cần token).
+5. Rate limit auth (siết chống brute-force / spam)
+- Login: 10 lần SAI / 15 phút / IP (skipSuccessfulRequests)
+- Register: 5 req / 1 giờ / IP
+- Forgot/reset/change password: 5 req / 15 phút / IP
+- Facebook OAuth: 20 req / 15 phút / IP
+- trust proxy = 1 (Render lấy đúng IP)
+Env: AUTH_LOGIN_RATE_LIMIT_MAX, AUTH_REGISTER_RATE_LIMIT_MAX, ...
+Response 429: { message, code: "RATE_LIMIT_EXCEEDED" }

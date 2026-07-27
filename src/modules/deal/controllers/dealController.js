@@ -12,11 +12,20 @@ const dealController = {
   }),
 
   stats: asyncHandler(async (req, res) => {
-    const data = await dealService.dealStats(req.authUser);
+    const data = await dealService.dealStats(req.authUser, req.query);
     return res.status(200).json({
       message: 'Thống kê giao dịch thành công',
       data,
     });
+  }),
+
+  /** Nhật ký deal gần đây (audit sâu hơn — toàn hệ thống, filter thucThe=deal) */
+  recentAudit: asyncHandler(async (req, res) => {
+    const data = await listAuditLogs({
+      thucThe: 'deal',
+      limit: req.query.limit || 40,
+    });
+    return res.status(200).json({ message: 'Nhật ký giao dịch gần đây', data });
   }),
 
   getById: asyncHandler(async (req, res) => {

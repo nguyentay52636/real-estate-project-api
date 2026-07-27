@@ -768,6 +768,7 @@ async function deleteHandoffTicket(handoffToken, adminId) {
     });
   }
 
+  await ThongBaoChat.deleteMany({ handoffToken });
   await ChatTicket.deleteOne({ handoffToken });
 
   console.log(`🗑️ [Handoff] Ticket ${handoffToken} deleted by admin ${adminId}`);
@@ -779,5 +780,53 @@ async function deleteHandoffTicket(handoffToken, adminId) {
   };
 }
 
-export { createHandoffTicket, getHandoffStatus, getPendingTickets, getAllTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, cancelHandoffTicketByGuest, reopenHandoffTicket, deleteHandoffTicket, STAFF_ROLE_NAMES };
-export default { createHandoffTicket, getHandoffStatus, getPendingTickets, getAllTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, cancelHandoffTicketByGuest, reopenHandoffTicket, deleteHandoffTicket, STAFF_ROLE_NAMES };
+/**
+ * Admin — xóa hàng loạt.
+ * - `status: 'cancelled'` (mặc định): xóa mọi ticket đã hủy
+ * - hoặc truyền `handoffTokens: string[]` để xóa đúng các token đã chọn
+ */
+async function deleteHandoffTicketsBulk(adminId, { handoffTokens, status } = {}) {
+  const requesterIsAdmin = await isAdmin(adminId);
+  if (!requesterIsAdmin) {
+    throw new Error('Chỉ admin mới có thể xóa ticket');
+  }
+
+  const filter = {};
+  if (Array.isArray(handoffTokens) && handoffTokens.length > 0) {
+    filter.handoffToken = { $in: handoffTokens.filter(Boolean) };
+  } else if (status) {
+    filter.trangThai = status;
+  } else {
+    filter.trangThai = 'cancelled';
+  }
+
+  const tickets = await ChatTicket.find(filter).select('handoffToken phongChatId');
+  if (!tickets.length) {
+    return { success: true, deleted: 0, handoffTokens: [], message: 'Không có ticket nào để xóa' };
+  }
+
+  const tokens = tickets.map((t) => t.handoffToken);
+  const roomIds = tickets.map((t) => t.phongChatId).filter(Boolean);
+
+  if (roomIds.length) {
+    await PhongChat.updateMany(
+      { _id: { $in: roomIds } },
+      { $set: { handoffToken: null, handoffResolvedAt: null } },
+    );
+  }
+
+  await ThongBaoChat.deleteMany({ handoffToken: { $in: tokens } });
+  const result = await ChatTicket.deleteMany({ handoffToken: { $in: tokens } });
+
+  console.log(`🗑️ [Handoff] Bulk deleted ${result.deletedCount} tickets by admin ${adminId}`);
+
+  return {
+    success: true,
+    deleted: result.deletedCount ?? tokens.length,
+    handoffTokens: tokens,
+    message: `Đã xóa ${result.deletedCount ?? tokens.length} ticket`,
+  };
+}
+
+export { createHandoffTicket, getHandoffStatus, getPendingTickets, getAllTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, cancelHandoffTicketByGuest, reopenHandoffTicket, deleteHandoffTicket, deleteHandoffTicketsBulk, STAFF_ROLE_NAMES };
+export default { createHandoffTicket, getHandoffStatus, getPendingTickets, getAllTickets, acceptHandoffTicket, getActiveStaffUsers, isStaff, isAdmin, formatTicketForClient, dismissHandoffTicket, dismissAllHandoffNotifications, resolveHandoffTicket, cancelHandoffTicket, cancelHandoffTicketByGuest, reopenHandoffTicket, deleteHandoffTicket, deleteHandoffTicketsBulk, STAFF_ROLE_NAMES };
