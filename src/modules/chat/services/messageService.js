@@ -246,7 +246,12 @@ export function createMessageService(deps = {}) {
     return maybeLean(
       Message.findByIdAndUpdate(
         id,
-        { noiDung: '[Tin nhắn đã được thu hồi]', trangThai: 'recalled' },
+        {
+          noiDung: '[Tin nhắn đã được thu hồi]',
+          trangThai: 'recalled',
+          tapTin: [],
+          hinhAnh: '',
+        },
         { new: true },
       )
         .populate('nguoiGuiId', SENDER_FIELDS)
@@ -352,10 +357,8 @@ export function createMessageService(deps = {}) {
     return deleted;
   }
 
-  async function socketRecallMessage(id, userId, io) {
-    const updated = await recallMessage(id, userId);
-    if (io) io.to(String(updated.roomId)).emit('recalledMessage', updated);
-    return updated;
+  async function socketRecallMessage(id, userId) {
+    return recallMessage(id, userId);
   }
 
   return {
