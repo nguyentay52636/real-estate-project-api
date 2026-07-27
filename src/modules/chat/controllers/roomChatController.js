@@ -120,10 +120,12 @@ const getRoomById = async (req, res) => {
 
 // Tạo phòng chat mới
 const createRoom = async (req, res) => {
-  const { tenPhong, loaiPhong, thanhVien, nguoiTao, anhDaiDien } = req.body;
+  const { tenPhong, loaiPhong, thanhVien, nguoiTao, anhDaiDien, boiCanh } = req.body;
   if (!loaiPhong || !thanhVien?.length || !nguoiTao) {
     return res.status(400).json({ message: 'Thiếu thông tin phòng chat' });
   }
+
+  const boiCanhPhong = boiCanh === 'noi_bo' ? 'noi_bo' : 'ho_tro_khach';
 
   try {
     const newRoom = await PhongChat.create({
@@ -132,6 +134,7 @@ const createRoom = async (req, res) => {
       thanhVien,
       nguoiTao,
       anhDaiDien: anhDaiDien || '',
+      boiCanh: boiCanhPhong,
       tinNhan: [],
     });
 
@@ -203,28 +206,31 @@ const findOrCreatePrivateRoom = async (req, res) => {
   const boiCanhPhong = boiCanh === 'noi_bo' ? 'noi_bo' : 'ho_tro_khach';
 
   try {
+    // Không dùng $where — Atlas M0/free tier không cho phép
     const existingRoom = await PhongChat.findOne({
       loaiPhong: 'private',
       boiCanh: boiCanhPhong,
-      'thanhVien.nguoiDung': { $all: [userId1, userId2] },
-      'thanhVien.trangThai': 'active',
-      $where: 'this.thanhVien.length == 2',
+      thanhVien: { $size: 2 },
+      $and: [
+        { thanhVien: { $elemMatch: { nguoiDung: userId1, trangThai: 'active' } } },
+        { thanhVien: { $elemMatch: { nguoiDung: userId2, trangThai: 'active' } } },
+      ],
     })
       .populate({
         path: 'thanhVien.nguoiDung',
-        select: 'ten anhDaiDien email tenDangNhap'
+        select: 'ten anhDaiDien email tenDangNhap',
       })
       .populate({
         path: 'nguoiTao',
-        select: 'ten anhDaiDien email tenDangNhap'
+        select: 'ten anhDaiDien email tenDangNhap',
       })
       .populate({
-        path: 'tinNhan',
+        path: 'tinNhanCuoi',
+        select: 'noiDung createdAt loaiTinNhan nguoiGuiId',
         populate: {
           path: 'nguoiGuiId',
-          select: 'ten anhDaiDien'
+          select: 'ten anhDaiDien',
         },
-        options: { sort: { createdAt: 1 } },
       });
 
     if (existingRoom) {
@@ -263,30 +269,34 @@ const findOrCreatePrivateRoom = async (req, res) => {
     });
 
     if (req.io) {
-      await createNotification({
-        nguoiNhan: userId2,
-        loai: 'room_update',
-        noiDung: `Bạn đã được thêm vào phòng chat riêng với ${userId1}`,
-        roomId: newRoom._id,
-      }, req.io);
+      try {
+        await createNotification({
+          nguoiNhan: userId2,
+          loai: 'room_update',
+          noiDung: 'Bạn có cuộc trò chuyện nội bộ mới',
+          roomId: newRoom._id,
+        }, req.io);
+      } catch (notifyErr) {
+        console.error('findOrCreatePrivateRoom notify:', notifyErr.message);
+      }
     }
 
     const populatedRoom = await PhongChat.findById(newRoom._id)
       .populate({
         path: 'thanhVien.nguoiDung',
-        select: 'ten anhDaiDien email tenDangNhap'
+        select: 'ten anhDaiDien email tenDangNhap',
       })
       .populate({
         path: 'nguoiTao',
-        select: 'ten anhDaiDien email tenDangNhap'
+        select: 'ten anhDaiDien email tenDangNhap',
       })
       .populate({
         path: 'tinNhanCuoi',
         select: 'noiDung createdAt loaiTinNhan nguoiGuiId',
         populate: {
           path: 'nguoiGuiId',
-          select: 'ten anhDaiDien'
-        }
+          select: 'ten anhDaiDien',
+        },
       });
 
     if (req.io) {
@@ -298,6 +308,7 @@ const findOrCreatePrivateRoom = async (req, res) => {
       message: 'Tạo phòng chat mới thành công',
     });
   } catch (error) {
+    console.error('findOrCreatePrivateRoom:', error);
     res.status(500).json({ message: 'Lỗi tìm/tạo phòng chat private', error: error.message });
   }
 };
