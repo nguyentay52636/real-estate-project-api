@@ -3,6 +3,7 @@ import PhongChat from '#models/ChatRoom.js';
 function createConnectionState(io) {
   const userRooms = new Map();
   const onlineUsers = new Map();
+  const activeCalls = new Map();
 
   const addSocket = (socketId, userId) => {
     const sockets = onlineUsers.get(userId) || new Set();
@@ -28,6 +29,34 @@ function createConnectionState(io) {
   };
 
   const getRooms = (socketId) => userRooms.get(socketId);
+
+  const setCallSession = (callId, session) => {
+    activeCalls.set(callId, { ...session });
+    return activeCalls.get(callId);
+  };
+
+  const getCallSession = (callId) => activeCalls.get(callId) || null;
+
+  const updateCallSession = (callId, patch) => {
+    const prev = activeCalls.get(callId);
+    if (!prev) return null;
+    const next = { ...prev, ...patch };
+    activeCalls.set(callId, next);
+    return next;
+  };
+
+  const removeCallSession = (callId) => {
+    const session = activeCalls.get(callId) || null;
+    activeCalls.delete(callId);
+    return session;
+  };
+
+  const listUserCallSessions = (userId) =>
+    Array.from(activeCalls.values()).filter(
+      (session) =>
+        String(session.callerId) === String(userId) ||
+        String(session.calleeId) === String(userId),
+    );
 
   const broadcastUserStatus = async (userId, status) => {
     const rooms = await PhongChat.find(
@@ -60,6 +89,9 @@ function createConnectionState(io) {
 
     userSockets.delete(socket.id);
     if (userSockets.size === 0) {
+      for (const session of listUserCallSessions(socket.user.id)) {
+        activeCalls.delete(session.callId);
+      }
       onlineUsers.delete(socket.user.id);
       await broadcastUserStatus(socket.user.id, 'offline');
     } else {
@@ -72,6 +104,11 @@ function createConnectionState(io) {
     setActiveRoom,
     removeRoom,
     getRooms,
+    setCallSession,
+    getCallSession,
+    updateCallSession,
+    removeCallSession,
+    listUserCallSessions,
     broadcastUserStatus,
     handleDisconnect,
   };
