@@ -5,6 +5,7 @@ import { registerRoomHandlers } from './roomHandlers.js';
 import { registerMessageHandlers } from './messageHandlers.js';
 import { registerMemberHandlers } from './memberHandlers.js';
 import { registerHandoffHandlers } from './handoffHandlers.js';
+import { registerCallHandlers } from './callHandlers.js';
 
 async function onConnection(socket, io, state) {
   logger.debug(`Socket connected: ${socket.user.id} (${socket.id})`);
@@ -23,6 +24,7 @@ async function onConnection(socket, io, state) {
   registerMessageHandlers(socket, io);
   registerMemberHandlers(socket, io, state);
   registerHandoffHandlers(socket);
+  registerCallHandlers(socket, io, state);
 
   socket.on('ping', () => {
     socket.emit('pong', {
