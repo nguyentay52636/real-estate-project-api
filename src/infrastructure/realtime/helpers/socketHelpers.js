@@ -12,9 +12,19 @@ function isValidId(id) {
   return mongoose.isValidObjectId(id);
 }
 
+function memberUserId(member) {
+  const raw = member?.nguoiDung;
+  if (!raw) return '';
+  if (typeof raw === 'object' && raw !== null && raw._id != null) {
+    return String(raw._id);
+  }
+  return String(raw);
+}
+
 function isActiveMember(room, userId) {
+  const uid = String(userId);
   return room.thanhVien.some(
-    (m) => m.nguoiDung.toString() === userId && m.trangThai === 'active'
+    (m) => memberUserId(m) === uid && m.trangThai === 'active',
   );
 }
 
