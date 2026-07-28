@@ -1,8 +1,17 @@
 import PhongChat from '#models/ChatRoom.js';
 import messageService from '#modules/chat/services/messageService.js';
-import { emitError, getRoomOrError, isValidId, wrapHandler } from '../helpers/socketHelpers.js';
+import { emitError, getRoomOrError, isActiveMember, isValidId, wrapHandler } from '../helpers/socketHelpers.js';
 
 const CALL_STATUSES = new Set(['missed', 'ended', 'declined']);
+
+function memberUserId(member) {
+  const raw = member?.nguoiDung;
+  if (!raw) return '';
+  if (typeof raw === 'object' && raw !== null && raw._id != null) {
+    return String(raw._id);
+  }
+  return String(raw);
+}
 
 async function emitCallLog(io, roomId, message) {
   if (!message) return;
@@ -13,7 +22,7 @@ async function emitCallLog(io, roomId, message) {
 
   for (const member of room.thanhVien) {
     if (member.trangThai !== 'active') continue;
-    const uid = member.nguoiDung?.toString?.() || String(member.nguoiDung);
+    const uid = memberUserId(member);
     if (uid) io.to(uid).emit('call:new', message);
   }
 }
@@ -49,12 +58,16 @@ function registerCallHandlers(socket, io, state) {
         return;
       }
 
-      const room = await getRoomOrError(socket, roomId, { requireInSocketRoom: true });
+      const room = await getRoomOrError(socket, roomId);
       if (!room) return;
+      if (!isActiveMember(room, socket.user.id)) {
+        emitError(socket, 'NOT_IN_ROOM', 'Bạn không thuộc phòng chat này');
+        return;
+      }
 
       const targetMember = room.thanhVien.find(
         (member) =>
-          member.nguoiDung.toString() === String(targetUserId) && member.trangThai === 'active',
+          memberUserId(member) === String(targetUserId) && member.trangThai === 'active',
       );
       if (!targetMember) {
         emitError(socket, 'TARGET_NOT_IN_ROOM', 'Người nhận không còn trong phòng chat');
