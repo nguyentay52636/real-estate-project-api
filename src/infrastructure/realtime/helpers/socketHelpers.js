@@ -87,7 +87,7 @@ async function populateMessage(messageId) {
   return TinNhan.findById(messageId)
     .populate('nguoiGuiId', 'ten anhDaiDien')
     .populate('roomId', 'tenPhong loaiPhong')
-    .populate('phanHoiTinNhan', 'noiDung nguoiGuiId');
+    .populate('phanHoiTinNhan.nguoiGuiId', 'ten anhDaiDien');
 }
 
 function wrapHandler(socket, handler, defaultCode = 'SERVER_ERROR') {

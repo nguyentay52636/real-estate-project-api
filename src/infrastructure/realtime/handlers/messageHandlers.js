@@ -340,7 +340,8 @@ function registerMessageHandlers(socket, io) {
 
       const updated = await TinNhan.find({ _id: { $in: validIds }, roomId })
         .populate('nguoiGuiId', 'ten anhDaiDien')
-        .populate('roomId', 'tenPhong loaiPhong');
+        .populate('roomId', 'tenPhong loaiPhong')
+        .populate('phanHoiTinNhan.nguoiGuiId', 'ten anhDaiDien');
 
       for (const msg of updated) {
         io.to(roomId).emit('message:read', msg);

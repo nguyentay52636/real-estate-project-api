@@ -10,6 +10,7 @@ const VALID_MESSAGE_TYPES = ['text', 'image', 'audio', 'cuoc_goi', 'system'];
 const VALID_CALL_TYPES = ['audio', 'video'];
 const VALID_CALL_STATUSES = ['missed', 'ended', 'declined', 'ongoing'];
 const DEFAULT_MESSAGE_LIMIT = 50;
+const MESSAGE_EDIT_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function parseMessagePagination({ limit, before, after, page } = {}) {
   const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || DEFAULT_MESSAGE_LIMIT));
@@ -25,6 +26,12 @@ function parseMessagePagination({ limit, before, after, page } = {}) {
 
 function hasTapTin(tapTin) {
   return Array.isArray(tapTin) ? tapTin.length > 0 : Boolean(tapTin);
+}
+
+function isWithinEditDeleteWindow(message) {
+  const createdAt = message?.createdAt ? new Date(message.createdAt).getTime() : 0;
+  if (!createdAt) return false;
+  return Date.now() - createdAt <= MESSAGE_EDIT_DELETE_WINDOW_MS;
 }
 
 export function createMessageService(deps = {}) {
@@ -221,7 +228,10 @@ export function createMessageService(deps = {}) {
   }
 
   async function updateMessage(id, userId, { noiDungMoi, tapTin }) {
-    await assertOwnership(id, userId, 'Không có quyền chỉnh sửa tin nhắn');
+    const message = await assertOwnership(id, userId, 'Không có quyền chỉnh sửa tin nhắn');
+    if (!isWithinEditDeleteWindow(message)) {
+      throw new AppError('Chỉ được chỉnh sửa tin nhắn trong vòng 24 giờ', 400);
+    }
     const updateData = { trangThai: 'edited' };
     if (noiDungMoi) updateData.noiDung = noiDungMoi;
     if (tapTin) updateData.tapTin = tapTin;
@@ -229,7 +239,10 @@ export function createMessageService(deps = {}) {
   }
 
   async function deleteMessage(id, userId) {
-    await assertOwnership(id, userId, 'Không có quyền xóa tin nhắn');
+    const message = await assertOwnership(id, userId, 'Không có quyền xóa tin nhắn');
+    if (!isWithinEditDeleteWindow(message)) {
+      throw new AppError('Chỉ được xóa tin nhắn trong vòng 24 giờ', 400);
+    }
     return maybeLean(
       Message.findByIdAndUpdate(
         id,
