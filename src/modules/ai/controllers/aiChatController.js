@@ -388,12 +388,20 @@ export const dismissAllHandoffs = async (req, res) => {
 
 export const sendHumanMessage = (req, res) => {
   try {
-    const { handoffToken, agentId, agentName, message, sessionId } = req.body;
+    const { handoffToken, message, sessionId, agentName } = req.body;
+    const agentId = req.user?.id || req.authUser?.id;
 
-    if (!handoffToken || !message || !agentId) {
+    if (!handoffToken || !message) {
       return res.status(400).json({
         success: false,
-        error: 'handoffToken, agentId và message là bắt buộc',
+        error: 'handoffToken và message là bắt buộc',
+      });
+    }
+
+    if (!agentId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Bạn chưa đăng nhập',
       });
     }
 
@@ -407,7 +415,7 @@ export const sendHumanMessage = (req, res) => {
       sessionId,
       sender: {
         type: 'human_agent',
-        agentId,
+        agentId: String(agentId),
         agentName: agentName || 'Nhân viên hỗ trợ',
       },
       message,

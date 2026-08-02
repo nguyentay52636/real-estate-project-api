@@ -19,7 +19,7 @@ export const generateAccessToken = (
 export const generateRefreshToken = (
   user,
   secret = process.env.JWT_REFRESH_SECRET,
-  expiresIn = process.env.JWT_REFRESH_EXPIRES || '365d',
+  expiresIn = process.env.JWT_REFRESH_EXPIRES || '30d',
 ) => {
   return jwt.sign(
     { id: user._id ?? user.id, vaiTro: user.vaiTro },

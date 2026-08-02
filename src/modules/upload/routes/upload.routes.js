@@ -4,6 +4,7 @@ import middlewareController from '#shared/middleware/auth.js';
 import uploadLocal from '#modules/upload/middleware/uploadLocal.js';
 import uploadMediaMemory from '#modules/upload/middleware/uploadMediaMemory.js';
 import uploadChatMemory from '#modules/upload/middleware/uploadChatMemory.js';
+import { uploadRateLimiter } from '#shared/middleware/rateLimit.js';
 
 const router = express.Router();
 
@@ -13,6 +14,8 @@ const handleUploadError = (err, req, res, next) => {
   }
   next();
 };
+
+const requireUpload = [middlewareController.verifyToken, uploadRateLimiter];
 
 /**
  * @swagger
@@ -57,7 +60,7 @@ const handleUploadError = (err, req, res, next) => {
  */
 router.post(
   '/local',
-  middlewareController.verifyToken,
+  ...requireUpload,
   uploadLocal.single('file'),
   handleUploadError,
   uploadController.uploadLocal
@@ -102,7 +105,7 @@ router.post(
  */
 router.post(
   '/cloudinary',
-  middlewareController.verifyToken,
+  ...requireUpload,
   uploadMediaMemory.single('file'),
   handleUploadError,
   uploadController.uploadCloudinary
@@ -146,7 +149,7 @@ router.post(
  */
 router.post(
   '/',
-  middlewareController.verifyToken,
+  ...requireUpload,
   uploadMediaMemory.single('file'),
   handleUploadError,
   uploadController.uploadAuto
@@ -189,7 +192,7 @@ router.post(
  */
 router.post(
   '/many',
-  middlewareController.verifyToken,
+  ...requireUpload,
   uploadMediaMemory.array('files', 12),
   handleUploadError,
   uploadController.uploadMany
@@ -230,7 +233,7 @@ router.post(
  */
 router.post(
   '/chat-audio',
-  middlewareController.verifyToken,
+  ...requireUpload,
   uploadChatMemory.single('file'),
   handleUploadError,
   uploadController.uploadChatAudio
