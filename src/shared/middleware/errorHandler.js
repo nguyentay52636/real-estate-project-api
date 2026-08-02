@@ -23,6 +23,11 @@ export function errorHandler(err, req, res, next) {
   }
 
   logger.error(`[Unhandled] ${req.method} ${req.originalUrl}: ${err?.message || err}`);
+
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(500).json({ message: 'Server error' });
+  }
+
   return res.status(500).json({ message: 'Server error', error: err?.message || String(err) });
 }
 

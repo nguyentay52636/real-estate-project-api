@@ -2,10 +2,27 @@ import passport from '#config/passport.js';
 import RefreshToken from '#models/RefreshToken.js';
 import { generateAccessToken, generateRefreshToken } from '#shared/utils/jwt.js';
 import { getPrimaryClientUrl } from '#shared/utils/corsOrigins.js';
-import https from 'https';
+import {
+  createOAuthExchangeCode,
+  consumeOAuthExchangeCode,
+} from '#modules/auth/services/oauthExchangeStore.js';
 
 // Kiểm tra Facebook credentials có sẵn không (dùng Boolean để tránh gán nhầm string App Secret)
 const hasFacebookCredentials = Boolean(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET);
+
+const REFRESH_COOKIE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function toPublicUser(user) {
+  const raw = user?._doc || user || {};
+  return {
+    _id: raw._id,
+    ten: raw.ten,
+    tenDangNhap: raw.tenDangNhap,
+    anhDaiDien: raw.anhDaiDien,
+    vaiTro: raw.vaiTro,
+    facebookId: raw.facebookId || undefined,
+  };
+}
 
 const authController = {
     loginFacebook: (req, res, next) => {
@@ -21,7 +38,6 @@ const authController = {
             });
         }
         
-        // Kiểm tra xem strategy có tồn tại không
         try {
             return passport.authenticate('facebook', { 
                 scope: ['email', 'public_profile'] 
@@ -70,24 +86,47 @@ const authController = {
                 userId: user._id 
             });
 
-     
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: "lax",
-                maxAge: 365 * 24 * 60 * 60 * 1000 // 1 year
+                maxAge: REFRESH_COOKIE_MS,
             });
 
-            // Redirect về frontend với access token và user info
-            const successUrl = `${clientUrl}/success?accessToken=${accessToken}&name=${encodeURIComponent(user.ten)}&userId=${user._id}&loginType=facebook`;
-            
-            console.log('Redirecting to:', successUrl);
+            // Không đưa accessToken lên query — FE đổi code một lần qua POST /api/auth/oauth/exchange
+            const code = createOAuthExchangeCode({
+                accessToken,
+                user: toPublicUser(user),
+                loginType: 'facebook',
+            });
+
+            const successUrl = `${clientUrl}/success?code=${encodeURIComponent(code)}&loginType=facebook`;
             return res.redirect(successUrl);
 
         } catch (error) {
             console.error('Facebook success error:', error);
-            return res.redirect(`${clientUrl}/failure?error=token_generation_failed&message=${encodeURIComponent(error.message)}`);
+            return res.redirect(`${clientUrl}/failure?error=token_generation_failed`);
         }
+    },
+
+    /**
+     * Đổi one-time OAuth code → accessToken + user (dùng 1 lần, TTL ~60s).
+     */
+    exchangeOAuthCode: (req, res) => {
+        const code = req.body?.code || req.query?.code;
+        const payload = consumeOAuthExchangeCode(code);
+        if (!payload) {
+            return res.status(400).json({
+                message: 'Mã OAuth không hợp lệ hoặc đã hết hạn',
+                error: 'OAUTH_CODE_INVALID',
+            });
+        }
+        return res.status(200).json({
+            message: 'OAuth exchange thành công',
+            accessToken: payload.accessToken,
+            user: payload.user,
+            loginType: payload.loginType || 'facebook',
+        });
     },
 
     userInfo: (req, res) => {
@@ -106,7 +145,6 @@ const authController = {
         });
     },
 
-    // Method để handle Facebook login errors
     handleError: (req, res) => {
         const error = req.query.error || 'unknown_error';
         const message = req.query.message || 'Facebook login failed';
@@ -120,8 +158,11 @@ const authController = {
         });
     },
 
-    // Debug endpoint để check Facebook app configuration (chỉ hiển thị status, không lộ App Secret)
     debugFacebookConfig: (req, res) => {
+        if (process.env.NODE_ENV === 'production') {
+            return res.status(403).json({ message: 'Endpoint này bị tắt ở môi trường production' });
+        }
+
         const config = {
             hasFacebookCredentials: hasFacebookCredentials,
             appId: process.env.FACEBOOK_APP_ID ? 'Configured' : 'Missing',
@@ -140,7 +181,6 @@ const authController = {
         });
     },
 
-    // Test endpoint để kiểm tra Facebook API
     testFacebookApi: async (req, res) => {
         if (process.env.NODE_ENV === 'production') {
             return res.status(403).json({ message: 'Endpoint này bị tắt ở môi trường production' });

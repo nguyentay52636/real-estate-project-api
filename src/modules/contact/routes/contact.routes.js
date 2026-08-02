@@ -2,6 +2,7 @@ import express from 'express';
 import contactController from '#modules/contact/controllers/contactController.js';
 import { authorizeRoles } from '#shared/middleware/authorizeRoles.js';
 import { optionalAuth } from '#shared/middleware/optionalAuth.js';
+import { contactRateLimiter } from '#shared/middleware/rateLimit.js';
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
  * POST /api/contact — form hỗ trợ (public).
  * Có JWT thì gắn nguoiDungId.
  */
-router.post('/', optionalAuth, contactController.createContact);
+router.post('/', optionalAuth, contactRateLimiter, contactController.createContact);
 
 /**
  * GET /api/contact — danh sách (admin / nhan_vien)

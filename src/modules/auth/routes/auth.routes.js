@@ -25,7 +25,7 @@ router.patch('/reset-password', passwordResetRateLimiter, authController.resetPa
 /** Alias cũ */
 router.post('/resetPassword', passwordResetRateLimiter, authController.resetPassword);
 
-/** Đổi mật khẩu — cần đăng nhập (thêm login limiter nhẹ chống spam) */
+/** Đổi mật khẩu — cần đăng nhập */
 router.patch(
   '/password',
   middlewareController.verifyToken,
@@ -40,6 +40,8 @@ router.get(
   facebookController.facebookCallback,
   facebookController.success,
 );
+/** Đổi one-time code sau Facebook login → accessToken (không còn token trên URL) */
+router.post('/oauth/exchange', oauthRateLimiter, facebookController.exchangeOAuthCode);
 router.get('/user', facebookController.userInfo);
 router.get('/facebook/debug', oauthRateLimiter, facebookController.debugFacebookConfig);
 router.get('/facebook/test', oauthRateLimiter, facebookController.testFacebookApi);
