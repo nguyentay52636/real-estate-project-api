@@ -12,8 +12,18 @@ import { emitError,
 function registerMemberHandlers(socket, io, state) {
   socket.on(
     'addMember',
-    wrapHandler(socket, async ({ roomId, newMemberId }) => {
-      if (!isValidId(roomId) || !isValidId(newMemberId)) {
+    wrapHandler(socket, async (payload = {}) => {
+      const { roomId } = payload;
+      const rawIds = [
+        ...(Array.isArray(payload.userIds) ? payload.userIds : []),
+        ...(Array.isArray(payload.newMemberIds) ? payload.newMemberIds : []),
+        payload.newMemberId,
+      ]
+        .filter(Boolean)
+        .map(String);
+      const newMemberIds = [...new Set(rawIds)];
+
+      if (!isValidId(roomId) || !newMemberIds.length || newMemberIds.some((id) => !isValidId(id))) {
         emitError(socket, 'INVALID_ID', 'ID phòng hoặc thành viên không hợp lệ');
         return;
       }
@@ -26,40 +36,65 @@ function registerMemberHandlers(socket, io, state) {
         return;
       }
       if (!isAdmin(room, socket.user.id)) {
-        emitError(socket, 'UNAUTHORIZED', 'Chỉ admin mới có thể thêm thành viên');
+        emitError(socket, 'UNAUTHORIZED', 'Chỉ admin nhóm mới có thể thêm thành viên');
         return;
       }
 
-      const existingMember = room.thanhVien.find((m) => m.nguoiDung.toString() === newMemberId);
-      if (existingMember?.trangThai === 'active') {
-        emitError(socket, 'MEMBER_EXISTS', 'Người dùng đã là thành viên của phòng');
+      const added = [];
+      for (const newMemberId of newMemberIds) {
+        const existingMember = room.thanhVien.find((m) => m.nguoiDung.toString() === newMemberId);
+        if (existingMember?.trangThai === 'active') continue;
+        if (existingMember?.trangThai === 'left') {
+          existingMember.trangThai = 'active';
+          existingMember.thoiGianThamGia = new Date();
+        } else {
+          room.thanhVien.push({ nguoiDung: newMemberId, vaiTro: 'member', trangThai: 'active' });
+        }
+        added.push(newMemberId);
+      }
+
+      if (!added.length) {
+        emitError(socket, 'MEMBER_EXISTS', 'Không có thành viên mới để thêm');
         return;
       }
 
-      if (existingMember?.trangThai === 'left') {
-        existingMember.trangThai = 'active';
-        existingMember.thoiGianThamGia = new Date();
-      } else {
-        room.thanhVien.push({ nguoiDung: newMemberId, vaiTro: 'member', trangThai: 'active' });
-      }
       await room.save();
 
       await createSystemMessage(
         roomId,
         socket.user.id,
-        `Người dùng ${newMemberId} đã được thêm vào phòng`
+        added.length === 1
+          ? 'Đã thêm thành viên vào nhóm'
+          : `Đã thêm ${added.length} thành viên vào nhóm`,
       );
 
-      await notifyMembers(io, [{ nguoiDung: newMemberId }], {
-        loai: 'room_update',
-        noiDung: `Bạn đã được thêm vào phòng ${room.tenPhong}`,
-        roomId,
-      });
-
       const updatedRoom = await populateRoom(roomId);
-      io.to(roomId).emit('memberAdded', { roomId, newMemberId, room: updatedRoom });
-      socket.emit('memberAdded', { message: 'Thêm thành viên thành công', room: updatedRoom });
-    }, 'ADD_MEMBER_FAILED')
+
+      for (const newMemberId of added) {
+        await notifyMembers(io, [{ nguoiDung: newMemberId }], {
+          loai: 'room_update',
+          noiDung: `Bạn đã được thêm vào phòng ${room.tenPhong}`,
+          roomId,
+        });
+        io.to(String(newMemberId)).emit('memberAdded', {
+          roomId,
+          newMemberId,
+          room: updatedRoom,
+        });
+        io.to(String(newMemberId)).emit('roomCreated', {
+          room: updatedRoom,
+          isNewRoom: false,
+          message: 'Bạn được thêm vào nhóm',
+        });
+      }
+
+      io.to(roomId).emit('memberAdded', { roomId, newMemberIds: added, room: updatedRoom });
+      socket.emit('memberAdded', {
+        message: 'Thêm thành viên thành công',
+        room: updatedRoom,
+        added,
+      });
+    }, 'ADD_MEMBER_FAILED'),
   );
 
   socket.on(

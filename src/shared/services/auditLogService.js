@@ -1,22 +1,25 @@
 import AuditLog from '#models/AuditLog.js';
 
-
+/**
+ * Ghi nhật ký — không chặn request nếu fail.
+ * auth/login_failed có thể thiếu nguoiDungId.
+ */
 export async function writeAuditLog({
   thucThe,
-  thucTheId,
+  thucTheId = null,
   hanhDong,
-  nguoiDungId,
+  nguoiDungId = null,
   truoc = null,
   sau = null,
   ghiChu = '',
 }) {
-  if (!thucThe || !thucTheId || !hanhDong || !nguoiDungId) return null;
+  if (!thucThe || !hanhDong) return null;
   try {
     return await AuditLog.create({
       thucThe,
-      thucTheId,
+      thucTheId: thucTheId || undefined,
       hanhDong,
-      nguoiDungId,
+      nguoiDungId: nguoiDungId || undefined,
       truoc,
       sau,
       ghiChu,
@@ -29,13 +32,41 @@ export async function writeAuditLog({
   }
 }
 
-export async function listAuditLogs({ thucThe, thucTheId, limit = 50 } = {}) {
+export async function listAuditLogs({
+  thucThe,
+  thucTheId,
+  hanhDong,
+  limit = 50,
+  page = 1,
+} = {}) {
   const filter = {};
   if (thucThe) filter.thucThe = thucThe;
   if (thucTheId) filter.thucTheId = thucTheId;
-  return AuditLog.find(filter)
-    .sort({ createdAt: -1 })
-    .limit(Math.min(100, Math.max(1, Number(limit) || 50)))
-    .populate('nguoiDungId', 'ten email anhDaiDien')
-    .lean();
+  if (hanhDong) filter.hanhDong = hanhDong;
+
+  const lim = Math.min(100, Math.max(1, Number(limit) || 50));
+  const pageNum = Math.max(1, Number(page) || 1);
+  const skip = (pageNum - 1) * lim;
+
+  const [data, total] = await Promise.all([
+    AuditLog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(lim)
+      .populate('nguoiDungId', 'ten email anhDaiDien')
+      .lean(),
+    AuditLog.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: lim,
+      totalPages: Math.ceil(total / lim) || 1,
+    },
+  };
 }
+
+export default { writeAuditLog, listAuditLogs };

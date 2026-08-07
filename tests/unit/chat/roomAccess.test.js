@@ -5,6 +5,9 @@ import {
   findActiveMember,
   assertCanAccessRoom,
   assertRoomAdmin,
+  assertCanDeleteOrDisbandRoom,
+  resolvePrivateChatOtherId,
+  buildRoomsListFilter,
   MEMBER_PUBLIC_SELECT,
   MEMBER_STAFF_SELECT,
 } from '#modules/chat/utils/roomAccess.js';
@@ -77,8 +80,100 @@ describe('roomAccess.assertRoomAdmin', () => {
   });
 });
 
+describe('roomAccess.assertCanDeleteOrDisbandRoom', () => {
+  const group = {
+    loaiPhong: 'group',
+    thanhVien: [
+      { nguoiDung: 'gadmin', trangThai: 'active', vaiTro: 'admin' },
+      { nguoiDung: 'gmem', trangThai: 'active', vaiTro: 'member' },
+    ],
+  };
+  const privateRoom = {
+    loaiPhong: 'private',
+    thanhVien: [
+      { nguoiDung: 'a1', trangThai: 'active', vaiTro: 'member' },
+      { nguoiDung: 'nv1', trangThai: 'active', vaiTro: 'member' },
+    ],
+  };
+
+  it('group: room admin can disband', () => {
+    assertCanDeleteOrDisbandRoom(group, 'gadmin', { isAdmin: false });
+  });
+
+  it('group: member cannot disband', () => {
+    assert.throws(
+      () => assertCanDeleteOrDisbandRoom(group, 'gmem', { isAdmin: false }),
+      (err) => err.statusCode === 403,
+    );
+  });
+
+  it('group: system admin can disband', () => {
+    assertCanDeleteOrDisbandRoom(group, 'sysadmin', { isAdmin: true });
+  });
+
+  it('private: only system admin can delete', () => {
+    assert.throws(
+      () => assertCanDeleteOrDisbandRoom(privateRoom, 'a1', { isAdmin: false }),
+      (err) => err.statusCode === 403,
+    );
+    assertCanDeleteOrDisbandRoom(privateRoom, 'sysadmin', { isAdmin: true });
+  });
+});
+
 describe('roomAccess.findActiveMember', () => {
   it('returns null when missing', () => {
     assert.equal(findActiveMember({ thanhVien: [] }, 'u1'), null);
+  });
+});
+
+describe('roomAccess.buildRoomsListFilter', () => {
+  it('defaults to membership for staff and admin', () => {
+    const f = buildRoomsListFilter('admin1', { isStaff: true, isAdmin: true }, {});
+    assert.deepEqual(f.thanhVien, {
+      $elemMatch: { nguoiDung: 'admin1', trangThai: 'active' },
+    });
+  });
+
+  it('allows scope=all only for system admin', () => {
+    assert.deepEqual(
+      buildRoomsListFilter('admin1', { isStaff: true, isAdmin: true }, { scope: 'all' }),
+      {},
+    );
+    const staffOnly = buildRoomsListFilter(
+      'nv1',
+      { isStaff: true, isAdmin: false },
+      { scope: 'all' },
+    );
+    assert.ok(staffOnly.thanhVien.$elemMatch);
+  });
+
+  it('filters loaiPhong=group', () => {
+    const f = buildRoomsListFilter('u1', { isStaff: false }, { loaiPhong: 'group' });
+    assert.equal(f.loaiPhong, 'group');
+  });
+});
+
+describe('roomAccess.resolvePrivateChatOtherId', () => {
+  it('uses otherUserId', () => {
+    assert.equal(resolvePrivateChatOtherId('admin1', { otherUserId: 'nv1' }), 'nv1');
+  });
+
+  it('resolves from userId1/userId2 when actor is one side', () => {
+    assert.equal(resolvePrivateChatOtherId('admin1', { userId1: 'admin1', userId2: 'nv1' }), 'nv1');
+    assert.equal(resolvePrivateChatOtherId('admin1', { userId1: 'nv1', userId2: 'admin1' }), 'nv1');
+  });
+
+  it('rejects self-chat', () => {
+    assert.throws(
+      () => resolvePrivateChatOtherId('admin1', { otherUserId: 'admin1' }),
+      (err) => err.statusCode === 400,
+    );
+  });
+
+  it('rejects when actor is neither side', () => {
+    assert.throws(
+      () => resolvePrivateChatOtherId('admin1', { userId1: 'a', userId2: 'b' }),
+      (err) => err.statusCode === 403,
+    );
   });
 });

@@ -39,16 +39,23 @@ export function createMessageService(deps = {}) {
   const Room = deps.Room ?? RoomModel;
   const Notification = deps.Notification ?? ChatNotificationModel;
 
-  async function checkRoomAccess(roomId, userId) {
+  async function checkRoomAccess(roomId, userId, { isStaff = false } = {}) {
     const room = await maybeLean(maybeSelect(Room.findById(roomId), 'thanhVien tenPhong'));
     if (!room) throw new AppError('Không tìm thấy phòng chat', 404);
-    const member = room.thanhVien.find(
-      (m) => m.nguoiDung.toString() === userId.toString(),
-    );
-    if (!member || member.trangThai !== 'active') {
+    const member = room.thanhVien.find((m) => {
+      const raw = m.nguoiDung;
+      const mid =
+        raw && typeof raw === 'object' && raw._id != null
+          ? String(raw._id)
+          : String(raw);
+      return mid === String(userId) && m.trangThai === 'active';
+    });
+    // Staff hệ thống được xem/gửi trong phòng hỗ trợ dù chưa nằm trong thanhVien
+    // (vd. mở từ ticket). Danh sách GET /api/room mặc định vẫn chỉ phòng mình thuộc.
+    if (!member && !isStaff) {
       throw new AppError('Người dùng không thuộc phòng chat', 403);
     }
-    return { room, member };
+    return { room, member: member || null };
   }
 
   function populateMessage(query) {
@@ -67,7 +74,9 @@ export function createMessageService(deps = {}) {
   }
 
   async function getMessages(roomId, userId, query = {}) {
-    const { member } = await checkRoomAccess(roomId, userId);
+    const { member } = await checkRoomAccess(roomId, userId, {
+      isStaff: Boolean(query.isStaff),
+    });
     const { limitNum, pageNum, before, after, skip } = parseMessagePagination(query);
 
     const filter = { roomId };
@@ -112,14 +121,16 @@ export function createMessageService(deps = {}) {
     };
   }
 
-  async function createMessage(input, nguoiGuiId) {
+  async function createMessage(input, nguoiGuiId, options = {}) {
     const { roomId, noiDung, tapTin, phanHoiTinNhan, loaiTinNhan } = input;
 
     if (!roomId || !nguoiGuiId || (!noiDung && !hasTapTin(tapTin) && loaiTinNhan !== 'system')) {
       throw new AppError('Thiếu thông tin bắt buộc', 400);
     }
 
-    const { room } = await checkRoomAccess(roomId, nguoiGuiId);
+    const { room } = await checkRoomAccess(roomId, nguoiGuiId, {
+      isStaff: Boolean(options.isStaff),
+    });
 
     if (loaiTinNhan && !VALID_MESSAGE_TYPES.includes(loaiTinNhan)) {
       throw new AppError(`Loại tin nhắn không hợp lệ: ${VALID_MESSAGE_TYPES.join(', ')}`, 400);
@@ -178,14 +189,14 @@ export function createMessageService(deps = {}) {
     return maybeLean(populateMessage(Message.findById(newMessage._id)));
   }
 
-  async function createCallMessage(input, nguoiGuiId) {
+  async function createCallMessage(input, nguoiGuiId, options = {}) {
     const { roomId, loai, trangThai, thoiLuong, thanhVien } = input;
 
     if (!roomId || !loai) {
       throw new AppError('Thiếu thông tin bắt buộc (roomId, loai)', 400);
     }
 
-    await checkRoomAccess(roomId, nguoiGuiId);
+    await checkRoomAccess(roomId, nguoiGuiId, { isStaff: Boolean(options.isStaff) });
 
     if (!VALID_CALL_TYPES.includes(loai)) {
       throw new AppError(`Loại cuộc gọi không hợp lệ: ${VALID_CALL_TYPES.join(', ')}`, 400);
@@ -286,15 +297,43 @@ export function createMessageService(deps = {}) {
     );
   }
 
-  async function searchMessages({ roomId, keyword, startDate, endDate, limit, page }, userId) {
-    await checkRoomAccess(roomId, userId);
+  async function searchMessages(
+    { roomId, keyword, q, startDate, endDate, limit, page, isStaff = false },
+    userId,
+  ) {
+    if (!roomId) throw new AppError('Thiếu roomId', 400);
+    const { member } = await checkRoomAccess(roomId, userId, {
+      isStaff: Boolean(isStaff),
+    });
+
+    const term = String(keyword || q || '').trim();
+    if (!term && !startDate && !endDate) {
+      throw new AppError('Cần keyword (hoặc q) hoặc khoảng ngày startDate/endDate', 400);
+    }
+    if (term && term.length < 2) {
+      throw new AppError('Từ khóa tìm kiếm tối thiểu 2 ký tự', 400);
+    }
+
     const { limitNum, pageNum, skip } = parseMessagePagination({ limit, page });
-    const query = { roomId };
-    if (keyword) query.noiDung = { $regex: keyword, $options: 'i' };
+    const query = {
+      roomId,
+      trangThai: { $nin: ['deleted', 'recalled'] },
+    };
+    if (term) {
+      // Escape regex special chars
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.noiDung = { $regex: escaped, $options: 'i' };
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
       if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+    if (member?.anTinTruocLuc) {
+      const cutoff = new Date(member.anTinTruocLuc);
+      if (!Number.isNaN(cutoff.getTime())) {
+        query.createdAt = { ...(query.createdAt || {}), $gt: cutoff };
+      }
     }
 
     let findQuery = Message.find(query).sort({ createdAt: -1 });
@@ -311,8 +350,9 @@ export function createMessageService(deps = {}) {
         total,
         page: pageNum,
         limit: limitNum,
-        totalPages: Math.ceil(total / limitNum),
+        totalPages: Math.ceil(total / limitNum) || 1,
       },
+      query: { roomId, keyword: term || null, startDate: startDate || null, endDate: endDate || null },
     };
   }
 

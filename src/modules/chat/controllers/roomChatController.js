@@ -10,7 +10,12 @@ import {
   findActiveMember,
   isActiveMember,
   httpError,
+  resolvePrivateChatOtherId,
+  resolveBoiCanhForPrivate,
+  buildRoomsListFilter,
+  assertCanDeleteOrDisbandRoom,
 } from '#modules/chat/utils/roomAccess.js';
+import { writeAuditLog } from '#shared/services/auditLogService.js';
 
 /** Gắn thêm field `khachHangId` (không thuộc schema PhongChat) lên các phòng có
  * handoffToken — để FE biết đúng ai là "khách" khi phòng có >2 thành viên (sau
@@ -53,17 +58,19 @@ const getAllRom = async (req, res) => {
     const userId = actor.id;
     const select = memberSelect(actor.isStaff);
 
-    const filter = actor.isStaff
-      ? {}
-      : {
-          thanhVien: { $elemMatch: { nguoiDung: userId, trangThai: 'active' } },
-          anDoiVoi: { $ne: userId },
-        };
+    // Mặc định chỉ phòng đang là thành viên (kể cả nhóm) — tránh FE hiện phòng rồi 403.
+    // Quản trị viên xem toàn hệ thống: ?scope=all. Lọc loại: ?loaiPhong=group|private
+    const filter = buildRoomsListFilter(
+      userId,
+      { isStaff: actor.isStaff, isAdmin: actor.isAdmin },
+      { scope: req.query.scope, loaiPhong: req.query.loaiPhong },
+    );
 
     const rooms = await PhongChat.find(filter)
-      .populate(roomPopulate(select));
+      .populate(roomPopulate(select))
+      .sort({ updatedAt: -1 });
 
-    res.status(200).json(rooms);
+    res.status(200).json(await attachKhachHangId(rooms));
   } catch (error) {
     return httpError(res, error, 'Lỗi lấy danh sách phòng chat');
   }
@@ -84,11 +91,15 @@ const getRoomsOfUser = async (req, res) => {
 
     const select = memberSelect(actor.isStaff);
     const query = {
-      'thanhVien.nguoiDung': targetUserId,
-      'thanhVien.trangThai': 'active',
+      thanhVien: {
+        $elemMatch: { nguoiDung: targetUserId, trangThai: 'active' },
+      },
       anDoiVoi: { $ne: targetUserId },
     };
     if (boiCanh) query.boiCanh = boiCanh;
+    if (req.query.loaiPhong === 'group' || req.query.loaiPhong === 'private') {
+      query.loaiPhong = req.query.loaiPhong;
+    }
 
     const rooms = await PhongChat.find(query)
       .populate(roomPopulate(select))
@@ -197,31 +208,11 @@ const createRoom = async (req, res) => {
 
 // Tìm hoặc tạo phòng chat riêng tư
 const findOrCreatePrivateRoom = async (req, res) => {
-  const { otherUserId, userId1, userId2, boiCanh } = req.body;
-
   try {
     const actor = await ensureAuthContext(req);
     const userId = actor.id;
-
-    let otherId = otherUserId ? String(otherUserId) : null;
-    if (!otherId) {
-      if (!userId1 || !userId2) {
-        return res.status(400).json({ message: 'Thiếu thông tin otherUserId hoặc userId1/userId2' });
-      }
-      const a = String(userId1);
-      const b = String(userId2);
-      if (a === userId) otherId = b;
-      else if (b === userId) otherId = a;
-      else {
-        return res.status(403).json({ message: 'Bạn phải là một trong hai thành viên của phòng' });
-      }
-    }
-
-    if (otherId === userId) {
-      return res.status(400).json({ message: 'Không thể tạo phòng chat với chính mình' });
-    }
-
-    const boiCanhPhong = boiCanh === 'noi_bo' ? 'noi_bo' : 'ho_tro_khach';
+    const otherId = resolvePrivateChatOtherId(userId, req.body);
+    const boiCanhPhong = await resolveBoiCanhForPrivate(userId, otherId, req.body.boiCanh);
     const select = memberSelect(actor.isStaff);
 
     // Không dùng $where — Atlas M0/free tier không cho phép
@@ -275,7 +266,9 @@ const findOrCreatePrivateRoom = async (req, res) => {
         await createNotification({
           nguoiNhan: otherId,
           loai: 'room_update',
-          noiDung: 'Bạn có cuộc trò chuyện nội bộ mới',
+          noiDung: boiCanhPhong === 'noi_bo'
+            ? 'Bạn có cuộc trò chuyện nội bộ mới'
+            : 'Bạn có cuộc trò chuyện mới',
           roomId: newRoom._id,
         }, req.io);
       } catch (notifyErr) {
@@ -288,11 +281,18 @@ const findOrCreatePrivateRoom = async (req, res) => {
 
     if (req.io) {
       req.io.to(newRoom._id.toString()).emit('roomCreated', populatedRoom);
+      // Nhân viên nhận room ngay cả khi chưa joinRoom
+      req.io.to(String(otherId)).emit('roomCreated', {
+        room: populatedRoom,
+        isNewRoom: true,
+        message: 'Tạo phòng chat mới thành công',
+      });
     }
     res.status(201).json({
       room: populatedRoom,
       isNewRoom: true,
       message: 'Tạo phòng chat mới thành công',
+      boiCanh: boiCanhPhong,
     });
   } catch (error) {
     console.error('findOrCreatePrivateRoom:', error);
@@ -436,7 +436,7 @@ const updateRoom = async (req, res) => {
   }
 };
 
-// Xóa phòng chat
+// Xóa phòng chat (private: chỉ quản trị viên; group: admin nhóm hoặc quản trị viên)
 const deleteRoom = async (req, res) => {
   const { roomId } = req.params;
 
@@ -445,31 +445,115 @@ const deleteRoom = async (req, res) => {
     const userId = actor.id;
 
     const room = await PhongChat.findById(roomId);
-    assertRoomAdmin(room, userId, actor.isStaff);
-
-    await TinNhan.deleteMany({ roomId });
-    await PhongChat.findByIdAndDelete(roomId);
+    assertCanDeleteOrDisbandRoom(room, userId, { isAdmin: actor.isAdmin });
 
     const otherMembers = room.thanhVien.filter(
       (m) => m.nguoiDung.toString() !== userId && m.trangThai === 'active',
     );
+
+    await TinNhan.deleteMany({ roomId });
+    await PhongChat.findByIdAndDelete(roomId);
+
+    await writeAuditLog({
+      thucThe: 'admin',
+      thucTheId: roomId,
+      hanhDong: room.loaiPhong === 'group' ? 'disband_group' : 'delete_private_chat',
+      nguoiDungId: userId,
+      sau: {
+        loaiPhong: room.loaiPhong,
+        tenPhong: room.tenPhong,
+        boiCanh: room.boiCanh,
+      },
+      ghiChu:
+        room.loaiPhong === 'group'
+          ? 'Giải tán / xóa nhóm chat'
+          : 'Admin xóa cuộc trò chuyện',
+    });
+
     for (const member of otherMembers) {
       if (req.io) {
         await createNotification({
           nguoiNhan: member.nguoiDung,
           loai: 'room_update',
-          noiDung: `Phòng ${room.tenPhong || 'chat riêng'} đã bị xóa`,
+          noiDung:
+            room.loaiPhong === 'group'
+              ? `Nhóm ${room.tenPhong || 'chat'} đã bị giải tán`
+              : `Cuộc trò chuyện đã bị xóa bởi quản trị viên`,
           roomId,
         }, req.io);
       }
     }
 
     if (req.io) {
-      req.io.to(roomId).emit('roomDeleted', { roomId });
+      req.io.to(roomId).emit('roomDeleted', {
+        roomId,
+        reason: room.loaiPhong === 'group' ? 'disbanded' : 'deleted',
+      });
     }
-    res.status(200).json({ message: 'Xóa phòng thành công' });
+    res.status(200).json({
+      message:
+        room.loaiPhong === 'group'
+          ? 'Giải tán nhóm thành công'
+          : 'Xóa cuộc trò chuyện thành công',
+    });
   } catch (error) {
     return httpError(res, error, 'Lỗi xóa phòng');
+  }
+};
+
+/** Giải tán nhóm — alias rõ nghĩa của DELETE (chỉ group). */
+const disbandGroup = async (req, res) => {
+  const { roomId } = req.params;
+
+  try {
+    const actor = await ensureAuthContext(req);
+    const userId = actor.id;
+
+    const room = await PhongChat.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Không tìm thấy phòng chat' });
+    }
+    if (room.loaiPhong !== 'group') {
+      return res.status(400).json({
+        message: 'Chỉ dùng giải tán cho phòng nhóm. Cuộc trò chuyện riêng: DELETE /api/room/:id (admin)',
+      });
+    }
+
+    assertCanDeleteOrDisbandRoom(room, userId, { isAdmin: actor.isAdmin });
+
+    const otherMembers = room.thanhVien.filter(
+      (m) => m.nguoiDung.toString() !== userId && m.trangThai === 'active',
+    );
+
+    await TinNhan.deleteMany({ roomId });
+    await PhongChat.findByIdAndDelete(roomId);
+
+    await writeAuditLog({
+      thucThe: 'admin',
+      thucTheId: roomId,
+      hanhDong: 'disband_group',
+      nguoiDungId: userId,
+      sau: { tenPhong: room.tenPhong },
+      ghiChu: 'Giải tán nhóm chat',
+    });
+
+    for (const member of otherMembers) {
+      if (req.io) {
+        await createNotification({
+          nguoiNhan: member.nguoiDung,
+          loai: 'room_update',
+          noiDung: `Nhóm ${room.tenPhong || 'chat'} đã bị giải tán`,
+          roomId,
+        }, req.io);
+      }
+    }
+
+    if (req.io) {
+      req.io.to(roomId).emit('roomDeleted', { roomId, reason: 'disbanded' });
+    }
+    res.status(200).json({ message: 'Giải tán nhóm thành công' });
+  } catch (error) {
+    return httpError(res, error, 'Lỗi giải tán nhóm');
   }
 };
 
@@ -483,8 +567,10 @@ const searchRooms = async (req, res) => {
     const select = memberSelect(actor.isStaff);
 
     const query = {
-      'thanhVien.nguoiDung': userId,
-      'thanhVien.trangThai': 'active',
+      thanhVien: {
+        $elemMatch: { nguoiDung: userId, trangThai: 'active' },
+      },
+      anDoiVoi: { $ne: userId },
     };
     if (keyword) {
       query.tenPhong = { $regex: keyword, $options: 'i' };
@@ -500,18 +586,29 @@ const searchRooms = async (req, res) => {
   }
 };
 
-// Thêm thành viên vào phòng chat nhóm
+// Thêm thành viên vào phòng chat nhóm (1 hoặc nhiều)
 const addMemberToRoom = async (req, res) => {
   const { roomId } = req.params;
-  const newMemberId = req.body.newMemberId || req.body.userId;
 
   try {
     const actor = await ensureAuthContext(req);
     const userId = actor.id;
     const select = memberSelect(actor.isStaff);
 
-    if (!newMemberId) {
-      return res.status(400).json({ message: 'Thiếu thông tin thành viên mới (userId / newMemberId)' });
+    const rawIds = [
+      ...(Array.isArray(req.body.userIds) ? req.body.userIds : []),
+      ...(Array.isArray(req.body.newMemberIds) ? req.body.newMemberIds : []),
+      req.body.newMemberId,
+      req.body.userId,
+    ]
+      .filter(Boolean)
+      .map(String);
+
+    const newMemberIds = [...new Set(rawIds)];
+    if (!newMemberIds.length) {
+      return res.status(400).json({
+        message: 'Thiếu thành viên mới (newMemberId | userId | userIds[])',
+      });
     }
 
     const room = await PhongChat.findById(roomId);
@@ -521,14 +618,38 @@ const addMemberToRoom = async (req, res) => {
       return res.status(400).json({ message: 'Chỉ có thể thêm thành viên vào phòng nhóm' });
     }
 
-    const existingMember = room.thanhVien.find((m) => m.nguoiDung.toString() === String(newMemberId));
-    if (existingMember && existingMember.trangThai === 'active') {
-      return res.status(400).json({ message: 'Người dùng đã là thành viên của phòng' });
+    const added = [];
+    const skipped = [];
+
+    for (const newMemberId of newMemberIds) {
+      if (newMemberId === userId) {
+        skipped.push({ userId: newMemberId, reason: 'self' });
+        continue;
+      }
+      const existingMember = room.thanhVien.find(
+        (m) => m.nguoiDung.toString() === String(newMemberId),
+      );
+      if (existingMember && existingMember.trangThai === 'active') {
+        skipped.push({ userId: newMemberId, reason: 'already_member' });
+        continue;
+      }
+      if (existingMember && existingMember.trangThai === 'left') {
+        existingMember.trangThai = 'active';
+      } else {
+        room.thanhVien.push({
+          nguoiDung: newMemberId,
+          vaiTro: 'member',
+          trangThai: 'active',
+        });
+      }
+      added.push(newMemberId);
     }
-    if (existingMember && existingMember.trangThai === 'left') {
-      existingMember.trangThai = 'active';
-    } else {
-      room.thanhVien.push({ nguoiDung: newMemberId, vaiTro: 'member', trangThai: 'active' });
+
+    if (!added.length) {
+      return res.status(400).json({
+        message: 'Không có thành viên mới nào được thêm',
+        skipped,
+      });
     }
 
     await room.save();
@@ -536,7 +657,10 @@ const addMemberToRoom = async (req, res) => {
     const systemMessage = await TinNhan.create({
       roomId,
       nguoiGuiId: userId,
-      noiDung: `Người dùng ${newMemberId} đã được thêm vào phòng`,
+      noiDung:
+        added.length === 1
+          ? `Đã thêm thành viên vào nhóm`
+          : `Đã thêm ${added.length} thành viên vào nhóm`,
       loaiTinNhan: 'system',
       daDoc: [userId],
       trangThai: 'sent',
@@ -547,25 +671,76 @@ const addMemberToRoom = async (req, res) => {
       tinNhanCuoi: systemMessage._id,
     });
 
-    if (req.io) {
-      await createNotification({
-        nguoiNhan: newMemberId,
-        loai: 'room_update',
-        noiDung: `Bạn đã được thêm vào phòng ${room.tenPhong}`,
-        roomId,
-      }, req.io);
-    }
-
     const updatedRoom = await PhongChat.findById(roomId)
       .populate({ path: 'thanhVien.nguoiDung', select })
       .populate({ path: 'nguoiTao', select });
 
     if (req.io) {
-      req.io.to(roomId).emit('memberAdded', { roomId, newMemberId });
+      for (const newMemberId of added) {
+        await createNotification({
+          nguoiNhan: newMemberId,
+          loai: 'room_update',
+          noiDung: `Bạn đã được thêm vào nhóm ${room.tenPhong || 'chat'}`,
+          roomId,
+        }, req.io);
+        // Cá nhân — FE cập nhật danh sách ngay khi chưa joinRoom
+        req.io.to(String(newMemberId)).emit('memberAdded', {
+          roomId,
+          newMemberId,
+          room: updatedRoom,
+        });
+        req.io.to(String(newMemberId)).emit('roomCreated', {
+          room: updatedRoom,
+          isNewRoom: false,
+          message: 'Bạn được thêm vào nhóm',
+        });
+      }
+      req.io.to(roomId).emit('memberAdded', {
+        roomId,
+        newMemberIds: added,
+        room: updatedRoom,
+      });
     }
-    res.status(200).json(updatedRoom);
+
+    res.status(200).json({
+      message: `Đã thêm ${added.length} thành viên`,
+      room: updatedRoom,
+      added,
+      skipped,
+    });
   } catch (error) {
     return httpError(res, error, 'Lỗi thêm thành viên');
+  }
+};
+
+/** GET /api/room/:roomId/presence — thành viên online trong phòng */
+const getRoomPresence = async (req, res) => {
+  try {
+    const actor = await ensureAuthContext(req);
+    const room = await PhongChat.findById(req.params.roomId).select('thanhVien');
+    assertCanAccessRoom(room, actor.id, actor.isStaff);
+
+    const memberIds = (room.thanhVien || [])
+      .filter((m) => m.trangThai === 'active')
+      .map((m) => String(m.nguoiDung));
+
+    const { getConnectionState } = await import('#infra/realtime/ioInstance.js');
+    const state = getConnectionState();
+    const onlineUserIds = state
+      ? memberIds.filter((id) => state.isUserOnline(id))
+      : [];
+
+    res.status(200).json({
+      roomId: req.params.roomId,
+      memberIds,
+      onlineUserIds,
+      users: memberIds.map((userId) => ({
+        userId,
+        online: onlineUserIds.includes(userId),
+      })),
+    });
+  } catch (error) {
+    return httpError(res, error, 'Lỗi lấy trạng thái online');
   }
 };
 
@@ -773,8 +948,10 @@ export {
   removeMessageFromRoom,
   updateRoom,
   deleteRoom,
+  disbandGroup,
   searchRooms,
   addMemberToRoom,
+  getRoomPresence,
   hideRoom,
   clearHistoryForMe,
   leaveRoom,
@@ -790,8 +967,10 @@ export default {
   removeMessageFromRoom,
   updateRoom,
   deleteRoom,
+  disbandGroup,
   searchRooms,
   addMemberToRoom,
+  getRoomPresence,
   hideRoom,
   clearHistoryForMe,
   leaveRoom,

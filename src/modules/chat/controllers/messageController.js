@@ -1,6 +1,7 @@
 // controllers/messageController.js
 import messageService from '#modules/chat/services/messageService.js';
 import { buildMessagePayloadWithUploads } from '#modules/chat/utils/messageAttachments.js';
+import { ensureAuthContext } from '#modules/chat/utils/roomAccess.js';
 import { asyncHandler } from '#shared/http/asyncHandler.js';
 import { AppError } from '#shared/errors/AppError.js';
 
@@ -11,25 +12,30 @@ function requireUserId(req) {
 }
 
 const getMessages = asyncHandler(async (req, res) => {
-  const userId = requireUserId(req);
-  const result = await messageService.getMessages(req.params.roomId, userId, {
+  const actor = await ensureAuthContext(req);
+  const result = await messageService.getMessages(req.params.roomId, actor.id, {
     ...req.query,
     roomId: req.params.roomId,
+    isStaff: actor.isStaff,
   });
   return res.json(result);
 });
 
 const createMessageHandler = asyncHandler(async (req, res) => {
-  const userId = requireUserId(req);
+  const actor = await ensureAuthContext(req);
   const files = req.files?.length ? req.files : req.file ? [req.file] : [];
   const payload = await buildMessagePayloadWithUploads(req.body, files);
-  const message = await messageService.createMessage(payload, userId);
+  const message = await messageService.createMessage(payload, actor.id, {
+    isStaff: actor.isStaff,
+  });
   return res.status(201).json(message);
 });
 
 const createCallMessage = asyncHandler(async (req, res) => {
-  const userId = requireUserId(req);
-  const message = await messageService.createCallMessage(req.body, userId);
+  const actor = await ensureAuthContext(req);
+  const message = await messageService.createCallMessage(req.body, actor.id, {
+    isStaff: actor.isStaff,
+  });
   return res.status(201).json(message);
 });
 
@@ -58,9 +64,17 @@ const markMessageAsRead = asyncHandler(async (req, res) => {
 });
 
 const searchMessages = asyncHandler(async (req, res) => {
-  const userId = requireUserId(req);
-  const messages = await messageService.searchMessages(req.query, userId);
-  return res.json(messages);
+  const actor = await ensureAuthContext(req);
+  const result = await messageService.searchMessages(
+    {
+      ...req.query,
+      roomId: req.params.roomId,
+      keyword: req.query.keyword || req.query.q,
+      isStaff: actor.isStaff,
+    },
+    actor.id,
+  );
+  return res.json(result);
 });
 
 const pinMessage = asyncHandler(async (req, res) => {

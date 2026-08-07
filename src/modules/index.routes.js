@@ -22,11 +22,13 @@ import dealRouter from '#modules/deal/routes/deal.routes.js';
 import teamRouter from '#modules/deal/routes/team.routes.js';
 import contractRouter from '#modules/deal/routes/contract.routes.js';
 import contactRouter from '#modules/contact/routes/contact.routes.js';
+import auditRouter from '#modules/audit/routes/audit.routes.js';
 
 const router = express.Router();
 
 router.use("/owner",ownerRouter)
 router.use("/contact", contactRouter);
+router.use("/audit", auditRouter);
 router.use("/deal", dealRouter);
 router.use("/team", teamRouter);
 router.use("/contract", contractRouter);

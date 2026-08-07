@@ -7,6 +7,7 @@ import { setupSocket } from '#infra/realtime/SocketServer.js';
 import { setupAiWebSocket } from '#infra/realtime/aiWebSocket.js';
 import { startJobWorker } from '#infra/queue/jobQueue.js';
 import '#infra/queue/jobHandlers.js';
+import { initRateLimitStore } from '#shared/middleware/rateLimit.js';
 import { createApp } from './app.js';
 
 const PORT = process.env.PORT || 8000;
@@ -15,13 +16,20 @@ const app = createApp();
 const server = http.createServer(app);
 
 connectDB();
-setupSocket(server);
+
+Promise.all([initRateLimitStore(), setupSocket(server)])
+  .then(() => {
+    console.log('Socket.IO server is ready');
+  })
+  .catch((err) => {
+    console.warn(`[boot] realtime/rate-limit init: ${err.message}`);
+  });
+
 setupAiWebSocket(server);
 startJobWorker();
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log('Socket.IO server is ready');
   console.log(`AI WebSocket server is ready at ws://localhost:${PORT}/ws`);
 
   cloudinary.verifyConnection().then((result) => {

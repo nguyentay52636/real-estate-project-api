@@ -67,8 +67,24 @@ function createConnectionState(io) {
     const payload = { userId, status, timestamp: new Date() };
     for (const room of rooms) {
       io.to(room._id.toString()).emit('userStatus', payload);
+      io.to(room._id.toString()).emit('presence:update', {
+        userId: String(userId),
+        online: status === 'online',
+        status,
+        timestamp: payload.timestamp,
+      });
     }
   };
+
+  const isUserOnline = (userId) => {
+    const sockets = onlineUsers.get(String(userId));
+    return Boolean(sockets && sockets.size > 0);
+  };
+
+  const getOnlineUserIds = () =>
+    [...onlineUsers.entries()]
+      .filter(([, sockets]) => sockets.size > 0)
+      .map(([userId]) => String(userId));
 
   const handleDisconnect = async (socket) => {
     const rooms = userRooms.get(socket.id);
@@ -110,6 +126,8 @@ function createConnectionState(io) {
     removeCallSession,
     listUserCallSessions,
     broadcastUserStatus,
+    isUserOnline,
+    getOnlineUserIds,
     handleDisconnect,
   };
 }

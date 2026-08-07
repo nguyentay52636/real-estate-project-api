@@ -21,11 +21,15 @@ const dealController = {
 
   /** Nhật ký deal gần đây (audit sâu hơn — toàn hệ thống, filter thucThe=deal) */
   recentAudit: asyncHandler(async (req, res) => {
-    const data = await listAuditLogs({
+    const result = await listAuditLogs({
       thucThe: 'deal',
       limit: req.query.limit || 40,
     });
-    return res.status(200).json({ message: 'Nhật ký giao dịch gần đây', data });
+    return res.status(200).json({
+      message: 'Nhật ký giao dịch gần đây',
+      data: result.data,
+      pagination: result.pagination,
+    });
   }),
 
   getById: asyncHandler(async (req, res) => {
@@ -71,12 +75,16 @@ const dealController = {
   }),
 
   audit: asyncHandler(async (req, res) => {
-    const data = await listAuditLogs({
+    const result = await listAuditLogs({
       thucThe: 'deal',
       thucTheId: req.params.id,
       limit: req.query.limit,
     });
-    return res.status(200).json({ message: 'Nhật ký giao dịch', data });
+    return res.status(200).json({
+      message: 'Nhật ký giao dịch',
+      data: result.data,
+      pagination: result.pagination,
+    });
   }),
 };
 

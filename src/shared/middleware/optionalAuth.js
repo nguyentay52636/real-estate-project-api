@@ -1,12 +1,12 @@
 import auth from '#shared/middleware/auth.js';
 import User from '#models/User.js';
+import { extractAccessToken } from '#shared/utils/extractAccessToken.js';
 
 /**
- * JWT tùy chọn: có token thì gắn req.user + req.authUser; không có thì next().
+ * JWT tùy chọn: có token (header hoặc cookie) thì gắn req.user + req.authUser; không có thì next().
  */
 export function optionalAuth(req, res, next) {
-  const raw = req.headers.token || req.headers.authorization;
-  if (!raw) return next();
+  if (!extractAccessToken(req)) return next();
 
   return auth.verifyToken(req, res, async () => {
     try {
