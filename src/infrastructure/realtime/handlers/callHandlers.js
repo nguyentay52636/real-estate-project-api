@@ -1,5 +1,6 @@
 import PhongChat from '#models/ChatRoom.js';
 import messageService from '#modules/chat/services/messageService.js';
+import { getIceServers } from '#modules/chat/utils/webrtcIce.js';
 import { emitError, getRoomOrError, isActiveMember, isValidId, wrapHandler } from '../helpers/socketHelpers.js';
 
 const CALL_STATUSES = new Set(['missed', 'ended', 'declined']);
@@ -90,8 +91,17 @@ function registerCallHandlers(socket, io, state) {
         fromUserId: socket.user.id,
         fromName,
         loai,
+        boiCanh: room.boiCanh,
+        loaiPhong: room.loaiPhong,
+        iceServers: getIceServers().iceServers,
       });
-      socket.emit('call:ringing', { callId, roomId, targetUserId });
+      socket.emit('call:ringing', {
+        callId,
+        roomId,
+        targetUserId,
+        iceServers: getIceServers().iceServers,
+        hasTurn: getIceServers().hasTurn,
+      });
     }, 'CALL_INVITE_FAILED'),
   );
 

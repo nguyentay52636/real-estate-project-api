@@ -9,10 +9,23 @@ const getNotifications = asyncHandler(async (req, res) => {
   return res.status(200).json(notifications);
 });
 
-// Lấy thông báo chưa đọc
+// Lấy thông báo chưa đọc — { count, byRoom, data }; ?format=array = chỉ mảng (legacy)
 const getUnreadNotifications = asyncHandler(async (req, res) => {
-  const notifications = await notificationService.getUnreadNotifications(req.user.id);
-  return res.status(200).json(notifications);
+  const result = await notificationService.getUnreadNotifications(req.user.id);
+  if (String(req.query.format || '') === 'array') {
+    return res.status(200).json(result.data);
+  }
+  return res.status(200).json(result);
+});
+
+/** Đánh dấu đã đọc noti theo phòng — reset unread badge phòng đó */
+const markRoomNotificationsRead = asyncHandler(async (req, res) => {
+  const roomId = req.params.roomId || req.body.roomId;
+  if (!roomId) {
+    return res.status(400).json({ message: 'Thiếu roomId' });
+  }
+  await notificationService.markRoomAsRead(req.user.id, roomId);
+  return res.status(200).json({ message: 'Đã đọc thông báo phòng', roomId });
 });
 
 // Đánh dấu thông báo đã đọc
@@ -77,5 +90,25 @@ const setupNotificationSocket = (io) => {
   });
 };
 
-export { getNotifications, getUnreadNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, deleteAllNotifications, createNotification, setupNotificationSocket };
-export default { getNotifications, getUnreadNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, deleteAllNotifications, createNotification, setupNotificationSocket };
+export {
+  getNotifications,
+  getUnreadNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  markRoomNotificationsRead,
+  deleteNotification,
+  deleteAllNotifications,
+  createNotification,
+  setupNotificationSocket,
+};
+export default {
+  getNotifications,
+  getUnreadNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  markRoomNotificationsRead,
+  deleteNotification,
+  deleteAllNotifications,
+  createNotification,
+  setupNotificationSocket,
+};

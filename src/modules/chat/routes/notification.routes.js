@@ -1,11 +1,14 @@
 import express from 'express';
 import middlewareController from '#shared/middleware/auth.js';
-import { getNotifications,
+import {
+  getNotifications,
   getUnreadNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  markRoomNotificationsRead,
   deleteNotification,
-  deleteAllNotifications, } from '#modules/chat/controllers/notificationChatController.js';
+  deleteAllNotifications,
+} from '#modules/chat/controllers/notificationChatController.js';
 
 const router = express.Router();
 
@@ -13,6 +16,7 @@ router.use(middlewareController.verifyToken);
 
 router.get('/', getNotifications);
 router.get('/unread', getUnreadNotifications);
+router.put('/room/:roomId/read', markRoomNotificationsRead);
 router.put('/:id/read', markNotificationAsRead);
 router.put('/read-all', markAllNotificationsAsRead);
 router.delete('/:id', deleteNotification);

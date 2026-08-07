@@ -3,6 +3,11 @@ import RoomModel from '#models/ChatRoom.js';
 import ChatNotificationModel from '#models/ChatNotification.js';
 import { AppError } from '#shared/errors/AppError.js';
 import { maybeLean, maybeSelect } from '#shared/utils/queryHelpers.js';
+import {
+  parseMentionIds,
+  filterMentionsToRoomMembers,
+  resolveReplyId,
+} from '#modules/chat/utils/mentionHelpers.js';
 
 const SENDER_FIELDS = 'ten anhDaiDien';
 const ROOM_FIELDS = 'tenPhong loaiPhong';
@@ -34,24 +39,23 @@ function isWithinEditDeleteWindow(message) {
   return Date.now() - createdAt <= MESSAGE_EDIT_DELETE_WINDOW_MS;
 }
 
+function memberIdOf(m) {
+  const raw = m?.nguoiDung;
+  if (raw && typeof raw === 'object' && raw._id != null) return String(raw._id);
+  return String(raw ?? '');
+}
+
 export function createMessageService(deps = {}) {
   const Message = deps.Message ?? MessageModel;
   const Room = deps.Room ?? RoomModel;
   const Notification = deps.Notification ?? ChatNotificationModel;
 
   async function checkRoomAccess(roomId, userId, { isStaff = false } = {}) {
-    const room = await maybeLean(maybeSelect(Room.findById(roomId), 'thanhVien tenPhong'));
+    const room = await maybeLean(maybeSelect(Room.findById(roomId), 'thanhVien tenPhong loaiPhong'));
     if (!room) throw new AppError('Không tìm thấy phòng chat', 404);
-    const member = room.thanhVien.find((m) => {
-      const raw = m.nguoiDung;
-      const mid =
-        raw && typeof raw === 'object' && raw._id != null
-          ? String(raw._id)
-          : String(raw);
-      return mid === String(userId) && m.trangThai === 'active';
-    });
-    // Staff hệ thống được xem/gửi trong phòng hỗ trợ dù chưa nằm trong thanhVien
-    // (vd. mở từ ticket). Danh sách GET /api/room mặc định vẫn chỉ phòng mình thuộc.
+    const member = room.thanhVien.find(
+      (m) => memberIdOf(m) === String(userId) && m.trangThai === 'active',
+    );
     if (!member && !isStaff) {
       throw new AppError('Người dùng không thuộc phòng chat', 403);
     }
@@ -62,10 +66,10 @@ export function createMessageService(deps = {}) {
     return query
       .populate('nguoiGuiId', SENDER_FIELDS)
       .populate('roomId', ROOM_FIELDS)
+      .populate('mentions', SENDER_FIELDS)
       .populate('phanHoiTinNhan.nguoiGuiId', SENDER_FIELDS);
   }
 
-  /** Chỉ cập nhật tin cuối — không $push tinNhan[] */
   async function linkMessageToRoom(roomId, messageId) {
     await Room.findByIdAndUpdate(roomId, {
       tinNhanCuoi: messageId,
@@ -86,7 +90,6 @@ export function createMessageService(deps = {}) {
     if (after && !Number.isNaN(after.getTime())) {
       filter.createdAt = { ...(filter.createdAt || {}), $gt: after };
     }
-    // Ẩn lịch sử chỉ với user đã "xoá đoạn chat" (anTinTruocLuc)
     if (member?.anTinTruocLuc) {
       const cutoff = new Date(member.anTinTruocLuc);
       if (!Number.isNaN(cutoff.getTime())) {
@@ -122,7 +125,7 @@ export function createMessageService(deps = {}) {
   }
 
   async function createMessage(input, nguoiGuiId, options = {}) {
-    const { roomId, noiDung, tapTin, phanHoiTinNhan, loaiTinNhan } = input;
+    const { roomId, noiDung, tapTin, phanHoiTinNhan, loaiTinNhan, mentions } = input;
 
     if (!roomId || !nguoiGuiId || (!noiDung && !hasTapTin(tapTin) && loaiTinNhan !== 'system')) {
       throw new AppError('Thiếu thông tin bắt buộc', 400);
@@ -136,10 +139,14 @@ export function createMessageService(deps = {}) {
       throw new AppError(`Loại tin nhắn không hợp lệ: ${VALID_MESSAGE_TYPES.join(', ')}`, 400);
     }
 
+    const replyId = resolveReplyId(phanHoiTinNhan);
     let phanHoiData = null;
-    if (phanHoiTinNhan) {
-      const replyMessage = await maybeLean(Message.findById(phanHoiTinNhan));
+    if (replyId) {
+      const replyMessage = await maybeLean(Message.findById(replyId));
       if (!replyMessage) throw new AppError('Tin nhắn trả lời không hợp lệ', 400);
+      if (String(replyMessage.roomId) !== String(roomId)) {
+        throw new AppError('Tin trả lời không thuộc phòng này', 400);
+      }
       phanHoiData = {
         _id: replyMessage._id,
         noiDung: replyMessage.noiDung,
@@ -147,11 +154,15 @@ export function createMessageService(deps = {}) {
       };
     }
 
+    const rawMentions = parseMentionIds({ noiDung, mentions });
+    const mentionIds = filterMentionsToRoomMembers(rawMentions, room, nguoiGuiId);
+
     const newMessage = await Message.create({
       roomId,
       nguoiGuiId,
       noiDung: noiDung || '',
       tapTin: tapTin || [],
+      mentions: mentionIds,
       phanHoiTinNhan: phanHoiData,
       loaiTinNhan: loaiTinNhan || 'text',
       daDoc: [nguoiGuiId],
@@ -160,24 +171,25 @@ export function createMessageService(deps = {}) {
 
     await linkMessageToRoom(roomId, newMessage._id);
 
+    const mentionSet = new Set(mentionIds.map(String));
     const otherMembers = room.thanhVien.filter(
-      (m) => m.nguoiDung.toString() !== nguoiGuiId && m.trangThai === 'active',
+      (m) => memberIdOf(m) !== String(nguoiGuiId) && m.trangThai === 'active',
     );
-    if (otherMembers.length && typeof Notification.insertMany === 'function') {
-      await Notification.insertMany(
-        otherMembers.map((member) => ({
-          nguoiNhan: member.nguoiDung,
-          loai: 'new_message',
-          noiDung: `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
+
+    const notifDocs = [];
+    for (const member of otherMembers) {
+      const uid = memberIdOf(member);
+      if (mentionSet.has(uid)) {
+        notifDocs.push({
+          nguoiNhan: uid,
+          loai: 'mention',
+          noiDung: `Bạn được nhắc đến trong ${room.tenPhong || 'nhóm chat'}`,
           roomId,
           tinNhanId: newMessage._id,
-        })),
-        { ordered: false },
-      );
-    } else {
-      for (const member of otherMembers) {
-        await Notification.create({
-          nguoiNhan: member.nguoiDung,
+        });
+      } else {
+        notifDocs.push({
+          nguoiNhan: uid,
           loai: 'new_message',
           noiDung: `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
           roomId,
@@ -186,7 +198,50 @@ export function createMessageService(deps = {}) {
       }
     }
 
-    return maybeLean(populateMessage(Message.findById(newMessage._id)));
+    if (notifDocs.length && typeof Notification.insertMany === 'function') {
+      await Notification.insertMany(notifDocs, { ordered: false });
+    } else {
+      for (const doc of notifDocs) {
+        await Notification.create(doc);
+      }
+    }
+
+    const populated = await maybeLean(populateMessage(Message.findById(newMessage._id)));
+
+    const io = options.io;
+    if (io && populated) {
+      io.to(String(roomId)).emit('message:new', populated);
+      for (const member of otherMembers) {
+        const uid = memberIdOf(member);
+        if (!uid) continue;
+        io.to(uid).emit('message:new', populated);
+        const isMention = mentionSet.has(uid);
+        if (isMention) {
+          io.to(uid).emit('mention:new', {
+            roomId,
+            tinNhanId: newMessage._id,
+            message: populated,
+          });
+        }
+        // Badge unread realtime (REST + socket chung)
+        io.to(uid).emit('newNotification', {
+          loai: isMention ? 'mention' : 'new_message',
+          noiDung: isMention
+            ? `Bạn được nhắc đến trong ${room.tenPhong || 'nhóm chat'}`
+            : `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
+          roomId,
+          tinNhanId: newMessage._id,
+          daDoc: false,
+        });
+        io.to(uid).emit('unread:bump', {
+          roomId: String(roomId),
+          delta: 1,
+          loai: isMention ? 'mention' : 'new_message',
+        });
+      }
+    }
+
+    return populated;
   }
 
   async function createCallMessage(input, nguoiGuiId, options = {}) {
@@ -232,41 +287,38 @@ export function createMessageService(deps = {}) {
   async function assertOwnership(id, userId, forbiddenMessage) {
     const message = await Message.findById(id);
     if (!message) throw new AppError('Không tìm thấy tin nhắn', 404);
-    if (message.nguoiGuiId.toString() !== userId) {
+    if (message.nguoiGuiId.toString() !== String(userId)) {
       throw new AppError(forbiddenMessage, 403);
     }
     return message;
   }
 
-  async function updateMessage(id, userId, { noiDungMoi, tapTin }) {
-    const message = await assertOwnership(id, userId, 'Không có quyền chỉnh sửa tin nhắn');
+  async function updateMessage(id, userId, { noiDungMoi, tapTin } = {}) {
+    const message = await assertOwnership(id, userId, 'Chỉ người gửi mới được sửa tin nhắn');
     if (!isWithinEditDeleteWindow(message)) {
-      throw new AppError('Chỉ được chỉnh sửa tin nhắn trong vòng 24 giờ', 400);
+      throw new AppError('Chỉ được sửa tin trong 24 giờ', 403);
     }
-    const updateData = { trangThai: 'edited' };
-    if (noiDungMoi) updateData.noiDung = noiDungMoi;
-    if (tapTin) updateData.tapTin = tapTin;
-    return maybeLean(populateMessage(Message.findByIdAndUpdate(id, updateData, { new: true })));
+    if (noiDungMoi != null) message.noiDung = noiDungMoi;
+    if (tapTin != null) message.tapTin = tapTin;
+    message.trangThai = 'edited';
+    await message.save();
+    return maybeLean(populateMessage(Message.findById(id)));
   }
 
   async function deleteMessage(id, userId) {
-    const message = await assertOwnership(id, userId, 'Không có quyền xóa tin nhắn');
+    const message = await assertOwnership(id, userId, 'Chỉ người gửi mới được xóa tin nhắn');
     if (!isWithinEditDeleteWindow(message)) {
-      throw new AppError('Chỉ được xóa tin nhắn trong vòng 24 giờ', 400);
+      throw new AppError('Chỉ được xóa tin trong 24 giờ', 403);
     }
-    return maybeLean(
-      Message.findByIdAndUpdate(
-        id,
-        { noiDung: '[deleted]', trangThai: 'deleted' },
-        { new: true },
-      )
-        .populate('nguoiGuiId', SENDER_FIELDS)
-        .populate('roomId', ROOM_FIELDS),
-    );
+    message.trangThai = 'deleted';
+    message.noiDung = '';
+    message.tapTin = [];
+    await message.save();
+    return maybeLean(populateMessage(Message.findById(id)));
   }
 
   async function recallMessage(id, userId) {
-    await assertOwnership(id, userId, 'Không có quyền thu hồi tin nhắn');
+    await assertOwnership(id, userId, 'Chỉ người gửi mới được thu hồi tin nhắn');
     return maybeLean(
       Message.findByIdAndUpdate(
         id,
@@ -286,9 +338,14 @@ export function createMessageService(deps = {}) {
   async function markAsRead(id, userId) {
     const message = await Message.findById(id);
     if (!message) throw new AppError('Không tìm thấy tin nhắn', 404);
-    if (!message.daDoc.includes(userId)) {
-      message.daDoc.push(userId);
-      await message.save();
+    const uid = String(userId);
+    const already = (message.daDoc || []).some((d) => String(d) === uid);
+    if (!already) {
+      await Message.findByIdAndUpdate(id, { $addToSet: { daDoc: userId } });
+      await Notification.updateMany(
+        { tinNhanId: id, nguoiNhan: userId, daDoc: false },
+        { daDoc: true },
+      );
     }
     return maybeLean(
       Message.findById(id)
@@ -320,7 +377,6 @@ export function createMessageService(deps = {}) {
       trangThai: { $nin: ['deleted', 'recalled'] },
     };
     if (term) {
-      // Escape regex special chars
       const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.noiDung = { $regex: escaped, $options: 'i' };
     }
@@ -359,7 +415,7 @@ export function createMessageService(deps = {}) {
   async function assertRoomAdmin(roomId, userId, forbiddenMessage) {
     const room = await Room.findById(roomId);
     if (!room) throw new AppError('Không tìm thấy phòng chat', 404);
-    const member = room.thanhVien.find((m) => m.nguoiDung.toString() === userId);
+    const member = room.thanhVien.find((m) => m.nguoiDung.toString() === String(userId));
     if (!member || member.vaiTro !== 'admin') {
       throw new AppError(forbiddenMessage, 403);
     }
@@ -368,7 +424,8 @@ export function createMessageService(deps = {}) {
 
   async function pinMessage(roomId, messageId, userId) {
     const room = await assertRoomAdmin(roomId, userId, 'Chỉ admin mới có thể ghim tin nhắn');
-    if (!room.tinNhanGhim.includes(messageId)) {
+    if (!room.tinNhanGhim) room.tinNhanGhim = [];
+    if (!room.tinNhanGhim.map(String).includes(String(messageId))) {
       room.tinNhanGhim.push(messageId);
       await room.save();
     }
@@ -376,26 +433,12 @@ export function createMessageService(deps = {}) {
 
   async function unpinMessage(roomId, messageId, userId) {
     const room = await assertRoomAdmin(roomId, userId, 'Chỉ admin mới có thể gỡ ghim tin nhắn');
-    room.tinNhanGhim = room.tinNhanGhim.filter((id) => id.toString() !== messageId);
+    room.tinNhanGhim = (room.tinNhanGhim || []).filter((id) => id.toString() !== String(messageId));
     await room.save();
   }
 
   async function socketCreateMessage(data, io) {
-    const newMsg = await Message.create({
-      ...data,
-      daDoc: data.daDoc || [data.nguoiGuiId],
-      trangThai: data.trangThai || 'sent',
-    });
-    await linkMessageToRoom(data.roomId, newMsg._id);
-
-    const populatedMsg = await maybeLean(
-      Message.findById(newMsg._id)
-        .populate('nguoiGuiId', SENDER_FIELDS)
-        .populate('roomId', ROOM_FIELDS),
-    );
-
-    if (io) io.to(String(data.roomId)).emit('newMessage', populatedMsg);
-    return newMsg;
+    return createMessage(data, data.nguoiGuiId, { io, isStaff: Boolean(data.isStaff) });
   }
 
   async function socketUpdateMessage(id, noiDungMoi, userId, io) {

@@ -25,8 +25,17 @@ const createMessageHandler = asyncHandler(async (req, res) => {
   const actor = await ensureAuthContext(req);
   const files = req.files?.length ? req.files : req.file ? [req.file] : [];
   const payload = await buildMessagePayloadWithUploads(req.body, files);
+  // multipart: mentions có thể là JSON string
+  if (typeof payload.mentions === 'string') {
+    try {
+      payload.mentions = JSON.parse(payload.mentions);
+    } catch {
+      payload.mentions = [payload.mentions];
+    }
+  }
   const message = await messageService.createMessage(payload, actor.id, {
     isStaff: actor.isStaff,
+    io: req.io,
   });
   return res.status(201).json(message);
 });
@@ -89,12 +98,16 @@ const unpinMessage = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Gỡ ghim tin nhắn thành công' });
 });
 
-// ── Socket helpers (giữ chữ ký cũ cho realtime handlers) ──
-const createMessage = (data, io) => messageService.socketCreateMessage(data, io);
+// ── Socket helpers — dùng createMessage thật (reply snapshot + mention + access) ──
+const createMessage = (data, io) =>
+  messageService.createMessage(data, data.nguoiGuiId, {
+    io,
+    isStaff: Boolean(data.isStaff),
+  });
 const updateMessage = (id, noiDungMoi, userId, io) =>
   messageService.socketUpdateMessage(id, noiDungMoi, userId, io);
 const deleteMessage = (id, userId, io) => messageService.socketDeleteMessage(id, userId, io);
-const recallMessageSocket = (id, userId, io) => messageService.socketRecallMessage(id, userId, io);
+const recallMessageSocket = (id, userId, io) => messageService.socketRecallMessage(id, userId);
 
 export {
   getMessages,
