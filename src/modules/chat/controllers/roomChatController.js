@@ -586,18 +586,29 @@ const searchRooms = async (req, res) => {
   }
 };
 
-// Thêm thành viên vào phòng chat nhóm
+// Thêm thành viên vào phòng chat nhóm (1 hoặc nhiều)
 const addMemberToRoom = async (req, res) => {
   const { roomId } = req.params;
-  const newMemberId = req.body.newMemberId || req.body.userId;
 
   try {
     const actor = await ensureAuthContext(req);
     const userId = actor.id;
     const select = memberSelect(actor.isStaff);
 
-    if (!newMemberId) {
-      return res.status(400).json({ message: 'Thiếu thông tin thành viên mới (userId / newMemberId)' });
+    const rawIds = [
+      ...(Array.isArray(req.body.userIds) ? req.body.userIds : []),
+      ...(Array.isArray(req.body.newMemberIds) ? req.body.newMemberIds : []),
+      req.body.newMemberId,
+      req.body.userId,
+    ]
+      .filter(Boolean)
+      .map(String);
+
+    const newMemberIds = [...new Set(rawIds)];
+    if (!newMemberIds.length) {
+      return res.status(400).json({
+        message: 'Thiếu thành viên mới (newMemberId | userId | userIds[])',
+      });
     }
 
     const room = await PhongChat.findById(roomId);
@@ -607,14 +618,38 @@ const addMemberToRoom = async (req, res) => {
       return res.status(400).json({ message: 'Chỉ có thể thêm thành viên vào phòng nhóm' });
     }
 
-    const existingMember = room.thanhVien.find((m) => m.nguoiDung.toString() === String(newMemberId));
-    if (existingMember && existingMember.trangThai === 'active') {
-      return res.status(400).json({ message: 'Người dùng đã là thành viên của phòng' });
+    const added = [];
+    const skipped = [];
+
+    for (const newMemberId of newMemberIds) {
+      if (newMemberId === userId) {
+        skipped.push({ userId: newMemberId, reason: 'self' });
+        continue;
+      }
+      const existingMember = room.thanhVien.find(
+        (m) => m.nguoiDung.toString() === String(newMemberId),
+      );
+      if (existingMember && existingMember.trangThai === 'active') {
+        skipped.push({ userId: newMemberId, reason: 'already_member' });
+        continue;
+      }
+      if (existingMember && existingMember.trangThai === 'left') {
+        existingMember.trangThai = 'active';
+      } else {
+        room.thanhVien.push({
+          nguoiDung: newMemberId,
+          vaiTro: 'member',
+          trangThai: 'active',
+        });
+      }
+      added.push(newMemberId);
     }
-    if (existingMember && existingMember.trangThai === 'left') {
-      existingMember.trangThai = 'active';
-    } else {
-      room.thanhVien.push({ nguoiDung: newMemberId, vaiTro: 'member', trangThai: 'active' });
+
+    if (!added.length) {
+      return res.status(400).json({
+        message: 'Không có thành viên mới nào được thêm',
+        skipped,
+      });
     }
 
     await room.save();
@@ -622,7 +657,10 @@ const addMemberToRoom = async (req, res) => {
     const systemMessage = await TinNhan.create({
       roomId,
       nguoiGuiId: userId,
-      noiDung: `Người dùng ${newMemberId} đã được thêm vào phòng`,
+      noiDung:
+        added.length === 1
+          ? `Đã thêm thành viên vào nhóm`
+          : `Đã thêm ${added.length} thành viên vào nhóm`,
       loaiTinNhan: 'system',
       daDoc: [userId],
       trangThai: 'sent',
@@ -633,25 +671,76 @@ const addMemberToRoom = async (req, res) => {
       tinNhanCuoi: systemMessage._id,
     });
 
-    if (req.io) {
-      await createNotification({
-        nguoiNhan: newMemberId,
-        loai: 'room_update',
-        noiDung: `Bạn đã được thêm vào phòng ${room.tenPhong}`,
-        roomId,
-      }, req.io);
-    }
-
     const updatedRoom = await PhongChat.findById(roomId)
       .populate({ path: 'thanhVien.nguoiDung', select })
       .populate({ path: 'nguoiTao', select });
 
     if (req.io) {
-      req.io.to(roomId).emit('memberAdded', { roomId, newMemberId });
+      for (const newMemberId of added) {
+        await createNotification({
+          nguoiNhan: newMemberId,
+          loai: 'room_update',
+          noiDung: `Bạn đã được thêm vào nhóm ${room.tenPhong || 'chat'}`,
+          roomId,
+        }, req.io);
+        // Cá nhân — FE cập nhật danh sách ngay khi chưa joinRoom
+        req.io.to(String(newMemberId)).emit('memberAdded', {
+          roomId,
+          newMemberId,
+          room: updatedRoom,
+        });
+        req.io.to(String(newMemberId)).emit('roomCreated', {
+          room: updatedRoom,
+          isNewRoom: false,
+          message: 'Bạn được thêm vào nhóm',
+        });
+      }
+      req.io.to(roomId).emit('memberAdded', {
+        roomId,
+        newMemberIds: added,
+        room: updatedRoom,
+      });
     }
-    res.status(200).json(updatedRoom);
+
+    res.status(200).json({
+      message: `Đã thêm ${added.length} thành viên`,
+      room: updatedRoom,
+      added,
+      skipped,
+    });
   } catch (error) {
     return httpError(res, error, 'Lỗi thêm thành viên');
+  }
+};
+
+/** GET /api/room/:roomId/presence — thành viên online trong phòng */
+const getRoomPresence = async (req, res) => {
+  try {
+    const actor = await ensureAuthContext(req);
+    const room = await PhongChat.findById(req.params.roomId).select('thanhVien');
+    assertCanAccessRoom(room, actor.id, actor.isStaff);
+
+    const memberIds = (room.thanhVien || [])
+      .filter((m) => m.trangThai === 'active')
+      .map((m) => String(m.nguoiDung));
+
+    const { getConnectionState } = await import('#infra/realtime/ioInstance.js');
+    const state = getConnectionState();
+    const onlineUserIds = state
+      ? memberIds.filter((id) => state.isUserOnline(id))
+      : [];
+
+    res.status(200).json({
+      roomId: req.params.roomId,
+      memberIds,
+      onlineUserIds,
+      users: memberIds.map((userId) => ({
+        userId,
+        online: onlineUserIds.includes(userId),
+      })),
+    });
+  } catch (error) {
+    return httpError(res, error, 'Lỗi lấy trạng thái online');
   }
 };
 
@@ -862,6 +951,7 @@ export {
   disbandGroup,
   searchRooms,
   addMemberToRoom,
+  getRoomPresence,
   hideRoom,
   clearHistoryForMe,
   leaveRoom,
@@ -880,6 +970,7 @@ export default {
   disbandGroup,
   searchRooms,
   addMemberToRoom,
+  getRoomPresence,
   hideRoom,
   clearHistoryForMe,
   leaveRoom,

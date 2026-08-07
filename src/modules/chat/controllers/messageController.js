@@ -65,11 +65,16 @@ const markMessageAsRead = asyncHandler(async (req, res) => {
 
 const searchMessages = asyncHandler(async (req, res) => {
   const actor = await ensureAuthContext(req);
-  const messages = await messageService.searchMessages(
-    { ...req.query, isStaff: actor.isStaff },
+  const result = await messageService.searchMessages(
+    {
+      ...req.query,
+      roomId: req.params.roomId,
+      keyword: req.query.keyword || req.query.q,
+      isStaff: actor.isStaff,
+    },
     actor.id,
   );
-  return res.json(messages);
+  return res.json(result);
 });
 
 const pinMessage = asyncHandler(async (req, res) => {

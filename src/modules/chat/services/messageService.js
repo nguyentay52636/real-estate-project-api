@@ -298,17 +298,42 @@ export function createMessageService(deps = {}) {
   }
 
   async function searchMessages(
-    { roomId, keyword, startDate, endDate, limit, page, isStaff = false },
+    { roomId, keyword, q, startDate, endDate, limit, page, isStaff = false },
     userId,
   ) {
-    await checkRoomAccess(roomId, userId, { isStaff: Boolean(isStaff) });
+    if (!roomId) throw new AppError('Thiếu roomId', 400);
+    const { member } = await checkRoomAccess(roomId, userId, {
+      isStaff: Boolean(isStaff),
+    });
+
+    const term = String(keyword || q || '').trim();
+    if (!term && !startDate && !endDate) {
+      throw new AppError('Cần keyword (hoặc q) hoặc khoảng ngày startDate/endDate', 400);
+    }
+    if (term && term.length < 2) {
+      throw new AppError('Từ khóa tìm kiếm tối thiểu 2 ký tự', 400);
+    }
+
     const { limitNum, pageNum, skip } = parseMessagePagination({ limit, page });
-    const query = { roomId };
-    if (keyword) query.noiDung = { $regex: keyword, $options: 'i' };
+    const query = {
+      roomId,
+      trangThai: { $nin: ['deleted', 'recalled'] },
+    };
+    if (term) {
+      // Escape regex special chars
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.noiDung = { $regex: escaped, $options: 'i' };
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
       if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+    if (member?.anTinTruocLuc) {
+      const cutoff = new Date(member.anTinTruocLuc);
+      if (!Number.isNaN(cutoff.getTime())) {
+        query.createdAt = { ...(query.createdAt || {}), $gt: cutoff };
+      }
     }
 
     let findQuery = Message.find(query).sort({ createdAt: -1 });
@@ -325,8 +350,9 @@ export function createMessageService(deps = {}) {
         total,
         page: pageNum,
         limit: limitNum,
-        totalPages: Math.ceil(total / limitNum),
+        totalPages: Math.ceil(total / limitNum) || 1,
       },
+      query: { roomId, keyword: term || null, startDate: startDate || null, endDate: endDate || null },
     };
   }
 

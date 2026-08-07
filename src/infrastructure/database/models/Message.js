@@ -25,5 +25,6 @@ const TinNhanSchema = new mongoose.Schema({
 });
 
 TinNhanSchema.index({ roomId: 1, createdAt: 1 });
+TinNhanSchema.index({ roomId: 1, noiDung: 1 });
 
 export default mongoose.model('TinNhan', TinNhanSchema);

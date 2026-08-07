@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import Redis from 'ioredis';
 import logger from '#shared/utils/logger.js';
-import { setIO } from './ioInstance.js';
+import { setIO, setConnectionState } from './ioInstance.js';
 import { socketConfig } from './config.js';
 import { authMiddleware } from './middleware/auth.js';
 import { createConnectionState } from './state/connectionState.js';
@@ -74,6 +74,7 @@ const setupSocket = async (server) => {
 
   logger.info('Socket.IO server configured');
   setIO(io);
+  setConnectionState(state);
   return io;
 };
 
