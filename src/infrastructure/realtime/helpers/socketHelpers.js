@@ -1,11 +1,34 @@
 import mongoose from 'mongoose';
 import PhongChat from '#models/ChatRoom.js';
 import TinNhan from '#models/Message.js';
+import NguoiDung from '#models/User.js';
 import logger from '#shared/utils/logger.js';
+import { isStaffRole, isAdminRole } from '#shared/middleware/attachAuthUser.js';
 import { createNotification } from '#modules/chat/controllers/notificationChatController.js';
 
 function emitError(socket, code, message, error) {
   socket.emit('error', { code, message, ...(error ? { error } : {}) });
+}
+
+/** Role có thể chưa gắn lúc connect (load async sau đăng ký handler). */
+async function resolveSocketRole(socket) {
+  if (socket.user.vaiTroTen !== undefined) {
+    return socket.user.vaiTroTen;
+  }
+  const user = await NguoiDung.findById(socket.user.id)
+    .populate('vaiTro', 'ten')
+    .select('vaiTro')
+    .lean();
+  socket.user.vaiTroTen = user?.vaiTro?.ten || null;
+  return socket.user.vaiTroTen;
+}
+
+async function ensureSocketStaff(socket) {
+  return isStaffRole(await resolveSocketRole(socket));
+}
+
+async function ensureSocketAdmin(socket) {
+  return isAdminRole(await resolveSocketRole(socket));
 }
 
 function isValidId(id) {
@@ -115,5 +138,33 @@ function wrapHandler(socket, handler, defaultCode = 'SERVER_ERROR') {
   };
 }
 
-export { emitError, isValidId, isActiveMember, isAdmin, getOtherActiveMembers, getRoomOrError, notifyMembers, createSystemMessage, populateRoom, populateMessage, wrapHandler };
-export default { emitError, isValidId, isActiveMember, isAdmin, getOtherActiveMembers, getRoomOrError, notifyMembers, createSystemMessage, populateRoom, populateMessage, wrapHandler };
+export {
+  emitError,
+  ensureSocketStaff,
+  ensureSocketAdmin,
+  isValidId,
+  isActiveMember,
+  isAdmin,
+  getOtherActiveMembers,
+  getRoomOrError,
+  notifyMembers,
+  createSystemMessage,
+  populateRoom,
+  populateMessage,
+  wrapHandler,
+};
+export default {
+  emitError,
+  ensureSocketStaff,
+  ensureSocketAdmin,
+  isValidId,
+  isActiveMember,
+  isAdmin,
+  getOtherActiveMembers,
+  getRoomOrError,
+  notifyMembers,
+  createSystemMessage,
+  populateRoom,
+  populateMessage,
+  wrapHandler,
+};

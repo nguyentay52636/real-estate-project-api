@@ -17,6 +17,7 @@ router.post('/:roomId/message', roomController.addMessageToRoom);
 router.delete('/:roomId/message/:messageId', roomController.removeMessageFromRoom);
 router.put('/:roomId', roomController.updateRoom);
 router.delete('/:roomId', roomController.deleteRoom);
+router.post('/:roomId/disband', roomController.disbandGroup);
 router.post('/:roomId/add-member', roomController.addMemberToRoom);
 router.post('/:roomId/leave', roomController.leaveRoom);
 router.patch('/:roomId/hide', roomController.hideRoom);

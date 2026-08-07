@@ -13,6 +13,7 @@ const router = express.Router();
 
 router.post('/register', registerRateLimiter, authController.register);
 router.post('/login', loginRateLimiter, authController.login);
+router.post('/refresh', loginRateLimiter, authController.requestRefreshToken);
 router.post('/logout', authController.userLogout);
 
 /** Quên mật khẩu — gửi email (PATCH khuyến nghị) */

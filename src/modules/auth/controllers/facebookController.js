@@ -2,6 +2,7 @@ import passport from '#config/passport.js';
 import RefreshToken from '#models/RefreshToken.js';
 import { generateAccessToken, generateRefreshToken } from '#shared/utils/jwt.js';
 import { getPrimaryClientUrl } from '#shared/utils/corsOrigins.js';
+import { setAuthCookies } from '#shared/utils/authCookies.js';
 import {
   createOAuthExchangeCode,
   consumeOAuthExchangeCode,
@@ -9,8 +10,6 @@ import {
 
 // Kiểm tra Facebook credentials có sẵn không (dùng Boolean để tránh gán nhầm string App Secret)
 const hasFacebookCredentials = Boolean(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET);
-
-const REFRESH_COOKIE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function toPublicUser(user) {
   const raw = user?._doc || user || {};
@@ -86,14 +85,9 @@ const authController = {
                 userId: user._id 
             });
 
-            res.cookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: "lax",
-                maxAge: REFRESH_COOKIE_MS,
-            });
+            // Set refresh (+ access nếu cùng domain). FE vẫn đổi code qua exchange.
+            setAuthCookies(res, { accessToken, refreshToken });
 
-            // Không đưa accessToken lên query — FE đổi code một lần qua POST /api/auth/oauth/exchange
             const code = createOAuthExchangeCode({
                 accessToken,
                 user: toPublicUser(user),
@@ -120,6 +114,9 @@ const authController = {
                 message: 'Mã OAuth không hợp lệ hoặc đã hết hạn',
                 error: 'OAUTH_CODE_INVALID',
             });
+        }
+        if (payload.accessToken) {
+            setAuthCookies(res, { accessToken: payload.accessToken });
         }
         return res.status(200).json({
             message: 'OAuth exchange thành công',

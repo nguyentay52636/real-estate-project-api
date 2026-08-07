@@ -145,6 +145,8 @@ export function getCacheStatus() {
   };
 }
 
+export { isRedisEnabled, getRedisClient, ensureConnected };
+
 export default {
   cacheGet,
   cacheSet,
@@ -154,4 +156,7 @@ export default {
   hashKey,
   stripCacheBustParams,
   getCacheStatus,
+  isRedisEnabled,
+  getRedisClient,
+  ensureConnected,
 };

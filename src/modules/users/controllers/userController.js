@@ -6,6 +6,7 @@ import { uploadFromBuffer, destroyByUrl } from '#infra/storage/cloudinaryService
 import { getDirname } from '#shared/utils/esm.js';
 import { asyncHandler } from '#shared/http/asyncHandler.js';
 import { AppError } from '#shared/errors/AppError.js';
+import { writeAuditLog } from '#shared/services/auditLogService.js';
 
 const dirname = getDirname(import.meta.url);
 
@@ -46,6 +47,14 @@ const userController = {
 
   deleteUser: asyncHandler(async (req, res) => {
     const deletedUser = await userService.deleteUser(req.params.id);
+    await writeAuditLog({
+      thucThe: 'user',
+      thucTheId: req.params.id,
+      hanhDong: 'delete',
+      nguoiDungId: req.user?.id,
+      sau: { tenDangNhap: deletedUser?.tenDangNhap },
+      ghiChu: 'Admin xóa tài khoản',
+    });
     return res.status(200).json({ message: 'Delete user successfully', deletedUser });
   }),
 
@@ -58,6 +67,18 @@ const userController = {
 
   updateUser: asyncHandler(async (req, res) => {
     const updatedUser = await userService.updateUser(req.params.id, req.body);
+    await writeAuditLog({
+      thucThe: 'user',
+      thucTheId: req.params.id,
+      hanhDong: 'update',
+      nguoiDungId: req.user?.id,
+      sau: {
+        vaiTro: req.body.vaiTro,
+        trangThai: req.body.trangThai,
+        keys: Object.keys(req.body || {}),
+      },
+      ghiChu: 'Admin cập nhật tài khoản',
+    });
     return res.status(200).json({ message: 'Update user successfully', updatedUser });
   }),
 
@@ -79,6 +100,14 @@ const userController = {
     }
 
     const { user, customer, chuTro, nhanVien } = await userService.createUser(req.body);
+    await writeAuditLog({
+      thucThe: 'user',
+      thucTheId: user?._id || user?.id,
+      hanhDong: 'create',
+      nguoiDungId: req.user?.id,
+      sau: { vaiTro: req.body.vaiTro, tenDangNhap: req.body.tenDangNhap },
+      ghiChu: 'Admin tạo tài khoản',
+    });
     return res.status(201).json({
       message: 'Register successfully',
       user,

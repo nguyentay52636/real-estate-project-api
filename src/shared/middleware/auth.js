@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import NguoiDung from '#models/User.js';
 import VaiTro from '#models/Role.js';
+import { extractAccessToken } from '#shared/utils/extractAccessToken.js';
 
 async function isAdminUser(userId) {
   // BE Role enum: admin | nhan_vien | nguoi_thue | chu_tro
@@ -18,11 +19,9 @@ async function isAdminUser(userId) {
 
 const middlewareController = {
   verifyToken: (req, res, next) => {
-    let token = req.headers.token || req.headers.authorization;
+    const token = extractAccessToken(req);
 
     if (token) {
-      token = token.replace(/bearer\s+/gi, "").trim();
-
       jwt.verify(token, process.env.JWT_ACCESS_KEY, (error, userData) => {
         if (error) {
           return res.status(403).json("Token không hợp lệ");

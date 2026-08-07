@@ -1,11 +1,10 @@
 import jwt from 'jsonwebtoken';
 import logger from '#shared/utils/logger.js';
+import { extractSocketAccessToken } from '#shared/utils/extractAccessToken.js';
 
 function authMiddleware(socket, next) {
   try {
-    const token =
-      socket.handshake.auth.token ||
-      socket.handshake.headers.authorization?.replace('Bearer ', '');
+    const token = extractSocketAccessToken(socket);
 
     if (!token) {
       return next(new Error('Yêu cầu xác thực'));

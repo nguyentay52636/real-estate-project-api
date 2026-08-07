@@ -1,4 +1,5 @@
 import logger from '#shared/utils/logger.js';
+import { createCircuitBreaker, withTimeout } from '#shared/utils/circuitBreaker.js';
 
 /** Danh sách model :free mặc định — thử lần lượt khi model trước lỗi */
 const DEFAULT_FREE_CHAT_MODELS = [
@@ -11,6 +12,16 @@ const DEFAULT_FREE_CHAT_MODELS = [
 ];
 
 let openRouterInstance = null;
+
+const openRouterBreaker = createCircuitBreaker({
+  name: 'OpenRouter',
+  threshold: Number(process.env.OPENROUTER_CB_THRESHOLD || 5),
+  cooldownMs: Number(process.env.OPENROUTER_CB_COOLDOWN_MS || 60_000),
+});
+
+function getTimeoutMs() {
+  return Number(process.env.OPENROUTER_TIMEOUT_MS || 25_000);
+}
 
 function getOpenRouterKey() {
   return (process.env.OPEN_ROUTER_KEY || process.env.OPENROUTER_API_KEY || '').trim();
@@ -56,26 +67,40 @@ async function getOpenRouter() {
 }
 
 async function embedWithOpenRouter(text) {
+  openRouterBreaker.assertClosed();
+
   const openrouter = await getOpenRouter();
   const model = getEmbeddingModel();
 
-  const response = await openrouter.embeddings.generate({
-    requestBody: {
-      model,
-      input: text.trim(),
-    },
-  });
+  try {
+    const response = await withTimeout(
+      openrouter.embeddings.generate({
+        requestBody: {
+          model,
+          input: text.trim(),
+        },
+      }),
+      getTimeoutMs(),
+      'OpenRouter embedding',
+    );
 
-  const item = response?.data?.[0];
-  const values = Array.isArray(item?.embedding) ? item.embedding : null;
-  if (!values?.length) {
-    throw new Error('OpenRouter không trả về embedding');
+    const item = response?.data?.[0];
+    const values = Array.isArray(item?.embedding) ? item.embedding : null;
+    if (!values?.length) {
+      throw new Error('OpenRouter không trả về embedding');
+    }
+
+    openRouterBreaker.recordSuccess();
+    return values;
+  } catch (error) {
+    openRouterBreaker.recordFailure();
+    throw error;
   }
-
-  return values;
 }
 
 async function chatWithOpenRouter(systemPrompt, userPrompt) {
+  openRouterBreaker.assertClosed();
+
   const openrouter = await getOpenRouter();
   const models = getChatModelChain();
   const failures = [];
@@ -91,15 +116,19 @@ async function chatWithOpenRouter(systemPrompt, userPrompt) {
     try {
       logger.info(`[OpenRouter] Thử chat: ${model} (${i + 1}/${models.length})`);
 
-      const response = await openrouter.chat.send({
-        chatRequest: {
-          model,
-          messages,
-          stream: false,
-          maxTokens: 800,
-          temperature: 0.3,
-        },
-      });
+      const response = await withTimeout(
+        openrouter.chat.send({
+          chatRequest: {
+            model,
+            messages,
+            stream: false,
+            maxTokens: 800,
+            temperature: 0.3,
+          },
+        }),
+        getTimeoutMs(),
+        `OpenRouter chat (${model})`,
+      );
 
       const content = response?.choices?.[0]?.message?.content?.trim();
       if (!content) {
@@ -110,6 +139,7 @@ async function chatWithOpenRouter(systemPrompt, userPrompt) {
         logger.info(`[OpenRouter] Chat OK với ${model} (sau ${failures.length} model lỗi)`);
       }
 
+      openRouterBreaker.recordSuccess();
       return content;
     } catch (error) {
       const status = error?.status || error?.statusCode || error?.response?.status;
@@ -123,6 +153,7 @@ async function chatWithOpenRouter(systemPrompt, userPrompt) {
     }
   }
 
+  openRouterBreaker.recordFailure();
   const summary = failures.map((f) => `${f.model}(${f.status || 'err'})`).join(' → ');
   const err = lastError || new Error(`Hết model khả dụng: ${summary}`);
   err.modelFailures = failures;
@@ -134,5 +165,27 @@ function hasOpenRouterKey() {
   return Boolean(getOpenRouterKey());
 }
 
-export { embedWithOpenRouter, chatWithOpenRouter, hasOpenRouterKey, getOpenRouterKey, getChatModelChain, getEmbeddingModel, DEFAULT_FREE_CHAT_MODELS };
-export default { embedWithOpenRouter, chatWithOpenRouter, hasOpenRouterKey, getOpenRouterKey, getChatModelChain, getEmbeddingModel, DEFAULT_FREE_CHAT_MODELS };
+function getOpenRouterCircuitState() {
+  return openRouterBreaker.getState();
+}
+
+export {
+  embedWithOpenRouter,
+  chatWithOpenRouter,
+  hasOpenRouterKey,
+  getOpenRouterKey,
+  getChatModelChain,
+  getEmbeddingModel,
+  getOpenRouterCircuitState,
+  DEFAULT_FREE_CHAT_MODELS,
+};
+export default {
+  embedWithOpenRouter,
+  chatWithOpenRouter,
+  hasOpenRouterKey,
+  getOpenRouterKey,
+  getChatModelChain,
+  getEmbeddingModel,
+  getOpenRouterCircuitState,
+  DEFAULT_FREE_CHAT_MODELS,
+};

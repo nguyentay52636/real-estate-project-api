@@ -4,14 +4,15 @@ const NhatKySchema = new mongoose.Schema(
   {
     thucThe: {
       type: String,
-      enum: ['deal', 'team', 'property', 'viewing', 'contact', 'employee'],
+      enum: ['deal', 'team', 'property', 'viewing', 'contact', 'employee', 'user', 'auth', 'admin'],
       required: true,
       index: true,
     },
     thucTheId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
+      required: false,
       index: true,
+      default: null,
     },
     hanhDong: {
       type: String,
@@ -23,7 +24,8 @@ const NhatKySchema = new mongoose.Schema(
     nguoiDungId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'nguoiDung',
-      required: true,
+      required: false,
+      default: null,
     },
     ghiChu: { type: String, default: '' },
   },
@@ -31,5 +33,6 @@ const NhatKySchema = new mongoose.Schema(
 );
 
 NhatKySchema.index({ thucThe: 1, thucTheId: 1, createdAt: -1 });
+NhatKySchema.index({ thucThe: 1, createdAt: -1 });
 
 export default mongoose.models.NhatKy || mongoose.model('NhatKy', NhatKySchema);
