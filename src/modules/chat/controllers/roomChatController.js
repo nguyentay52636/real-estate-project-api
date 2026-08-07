@@ -37,6 +37,23 @@ async function attachKhachHangId(rooms) {
   });
 }
 
+/** Gắn unreadCount theo thông báo chưa đọc (new_message + mention). */
+async function attachUnreadCounts(rooms, userId) {
+  const list = rooms.map((r) => (r.toObject ? r.toObject() : r));
+  if (!list.length) return list;
+  const roomIds = list.map((r) => r._id).filter(Boolean);
+  try {
+    const notificationService = (await import('#modules/chat/services/notificationService.js')).default;
+    const byRoom = await notificationService.getUnreadCountByRooms(userId, roomIds);
+    return list.map((r) => ({
+      ...r,
+      unreadCount: byRoom[String(r._id)] || 0,
+    }));
+  } catch {
+    return list.map((r) => ({ ...r, unreadCount: 0 }));
+  }
+}
+
 function roomPopulate(select) {
   return [
     { path: 'thanhVien.nguoiDung', select },
@@ -70,7 +87,8 @@ const getAllRom = async (req, res) => {
       .populate(roomPopulate(select))
       .sort({ updatedAt: -1 });
 
-    res.status(200).json(await attachKhachHangId(rooms));
+    const withKhach = await attachKhachHangId(rooms);
+    res.status(200).json(await attachUnreadCounts(withKhach, userId));
   } catch (error) {
     return httpError(res, error, 'Lỗi lấy danh sách phòng chat');
   }
@@ -105,7 +123,8 @@ const getRoomsOfUser = async (req, res) => {
       .populate(roomPopulate(select))
       .sort({ updatedAt: -1 });
 
-    res.status(200).json(await attachKhachHangId(rooms));
+    const withKhach = await attachKhachHangId(rooms);
+    res.status(200).json(await attachUnreadCounts(withKhach, userId));
   } catch (error) {
     return httpError(res, error, 'Lỗi lấy danh sách phòng chat');
   }

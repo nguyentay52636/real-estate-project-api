@@ -23,12 +23,14 @@ import teamRouter from '#modules/deal/routes/team.routes.js';
 import contractRouter from '#modules/deal/routes/contract.routes.js';
 import contactRouter from '#modules/contact/routes/contact.routes.js';
 import auditRouter from '#modules/audit/routes/audit.routes.js';
+import webrtcRouter from '#modules/chat/routes/webrtc.routes.js';
 
 const router = express.Router();
 
 router.use("/owner",ownerRouter)
 router.use("/contact", contactRouter);
 router.use("/audit", auditRouter);
+router.use("/webrtc", webrtcRouter);
 router.use("/deal", dealRouter);
 router.use("/team", teamRouter);
 router.use("/contract", contractRouter);
@@ -47,6 +49,7 @@ router.use("/role", roleRouter);
 router.use("/customer", customerRouter);
 router.use("/message", messageRouter);
 router.use("/notification", notificationRouter);
+router.use("/notifications", notificationRouter); // alias swagger / FE cũ
 router.use("/room", roomRouter);
 router.use("/ai-chat", aiChatRouter);
 router.use("/upload", uploadRouter);

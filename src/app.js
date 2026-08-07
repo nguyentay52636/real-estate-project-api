@@ -11,6 +11,7 @@ import { getDirname } from '#shared/utils/esm.js';
 import { errorHandler } from '#shared/middleware/errorHandler.js';
 import { corsOriginDelegate } from '#shared/utils/corsOrigins.js';
 import { globalRateLimiter } from '#shared/middleware/rateLimit.js';
+import { getIO } from '#infra/realtime/ioInstance.js';
 
 const dirname = getDirname(import.meta.url);
 
@@ -85,6 +86,12 @@ export function createApp() {
 
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Gắn Socket.IO vào req (lazy — setupSocket chạy sau createApp)
+  app.use((req, _res, next) => {
+    req.io = getIO();
+    next();
+  });
 
   // Chống spam toàn API (sau auth middleware không áp dụng — gắn trước router)
   app.use('/api', globalRateLimiter);

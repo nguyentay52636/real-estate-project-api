@@ -5,6 +5,11 @@ const TinNhanSchema = new mongoose.Schema({
   nguoiGuiId: { type: mongoose.Schema.Types.ObjectId, ref: 'nguoiDung', required: true },
   noiDung: { type: String, maxlength: 1000 },
   tapTin: [{ type: String }],
+  /** @mention — userId được tag trong nhóm */
+  mentions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'nguoiDung',
+  }],
   phanHoiTinNhan: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: 'TinNhan' },
     noiDung: { type: String },
@@ -26,5 +31,6 @@ const TinNhanSchema = new mongoose.Schema({
 
 TinNhanSchema.index({ roomId: 1, createdAt: 1 });
 TinNhanSchema.index({ roomId: 1, noiDung: 1 });
+TinNhanSchema.index({ mentions: 1, createdAt: -1 });
 
 export default mongoose.model('TinNhan', TinNhanSchema);

@@ -87,7 +87,7 @@ function registerMessageHandlers(socket, io) {
   socket.on(
     'message:create',
     wrapHandler(socket, async (data) => {
-      const { roomId, noiDung, tapTin, phanHoiTinNhan, loaiTinNhan } = data;
+      const { roomId, noiDung, tapTin, phanHoiTinNhan, loaiTinNhan, mentions } = data;
 
       if (!roomId || (!noiDung && !tapTin?.length && loaiTinNhan !== 'cuoc_goi')) {
         emitError(socket, 'INVALID_DATA', 'Thiếu dữ liệu tin nhắn');
@@ -101,53 +101,33 @@ function registerMessageHandlers(socket, io) {
         emitError(socket, 'NOT_IN_ROOM', 'Bạn phải tham gia phòng trước');
         return;
       }
-      if (phanHoiTinNhan && !isValidId(phanHoiTinNhan)) {
+      const replyRaw =
+        typeof phanHoiTinNhan === 'object' && phanHoiTinNhan
+          ? phanHoiTinNhan._id || phanHoiTinNhan.id
+          : phanHoiTinNhan;
+      if (replyRaw && !isValidId(replyRaw)) {
         emitError(socket, 'INVALID_REPLY_ID', 'ID tin nhắn trả lời không hợp lệ');
         return;
       }
 
-      // Ticket hỗ trợ đã hoàn tất/hủy (còn phòng chat) → khóa, không cho gửi thêm
-      // tin nhắn nữa từ CẢ 2 phía, cho tới khi admin "Mở lại" (xem reopenHandoffTicket
-      // — mở lại sẽ set handoffResolvedAt về null nên check này tự hết chặn).
       const roomBeforeSend = await PhongChat.findById(roomId).select('handoffToken handoffResolvedAt');
       if (roomBeforeSend?.handoffToken && roomBeforeSend?.handoffResolvedAt) {
         emitError(socket, 'ROOM_LOCKED', 'Yêu cầu hỗ trợ này đã đóng — không thể gửi tin nhắn.');
         return;
       }
 
-      const message = await createMessage({
+      // createMessage (service) đã emit message:new + mention:new + ghi notification
+      await createMessage({
         roomId,
         nguoiGuiId: socket.user.id,
         noiDung: noiDung || '',
         tapTin: tapTin || [],
-        phanHoiTinNhan: phanHoiTinNhan || null,
+        phanHoiTinNhan: replyRaw || null,
         loaiTinNhan: loaiTinNhan || 'text',
-      });
-
-      const [populatedMessage, room] = await Promise.all([
-        populateMessage(message._id),
-        PhongChat.findById(roomId).select('tenPhong thanhVien'),
-      ]);
-
-      await notifyMembers(io, getOtherActiveMembers(room, socket.user.id), {
-        loai: 'new_message',
-        noiDung: `Tin nhắn mới trong phòng ${room.tenPhong || 'chat riêng'}`,
-        roomId,
-        tinNhanId: message._id,
-      });
-
-      // Phòng socket (người đang mở chat + đã join)
-      io.to(roomId).emit('message:new', populatedMessage);
-      // Phòng cá nhân — member chưa join room (không emit lại cho người gửi / đã trong phòng)
-      if (room?.thanhVien?.length) {
-        for (const m of room.thanhVien) {
-          if (m.trangThai !== 'active') continue;
-          const uid = m.nguoiDung?.toString?.() || String(m.nguoiDung);
-          if (!uid || uid === String(socket.user.id)) continue;
-          io.to(uid).emit('message:new', populatedMessage);
-        }
-      }
-    }, 'CREATE_MESSAGE_FAILED')
+        mentions,
+        isStaff: false,
+      }, io);
+    }, 'CREATE_MESSAGE_FAILED'),
   );
 
   socket.on(

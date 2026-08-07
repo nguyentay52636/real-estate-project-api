@@ -59,6 +59,7 @@ export function buildMessagePayload(body = {}, files = []) {
     tapTin: bodyUrls,
     phanHoiTinNhan: body.phanHoiTinNhan || null,
     loaiTinNhan,
+    mentions: body.mentions || undefined,
   };
 }
 
@@ -74,5 +75,6 @@ export async function buildMessagePayloadWithUploads(body = {}, files = []) {
     tapTin,
     phanHoiTinNhan: body.phanHoiTinNhan || null,
     loaiTinNhan,
+    mentions: body.mentions || undefined,
   };
 }
